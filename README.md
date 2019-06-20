@@ -3,7 +3,7 @@ a repository of references materials, vignettes, scripts, tutorials for the bioc
 
 # Bioconductor cheat sheet
 Also usefu:
-[PH525x Statistics for Genomics Book](http://http://genomicsclass.github.io/book/).
+[PH525x Statistics for Genomics Book](http://http://genomicsclass.github.io/book/)
 and
 [Kasper Daniel Hansen's Bioconductor class notes](http://kasperdanielhansen.github.io/genbioconductor/).
 
