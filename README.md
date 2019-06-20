@@ -1,21 +1,24 @@
-# Bioconductor-Resources-and-Scripts-
-a repository of references materials, vignettes, scripts, tutorials for the bioconductor packages that I use for analyses. This was created to help organize my projects and prevent me from solving the same problem twice or rewriting code because I can't find it
+# Bioconductor-Cheatsheets-Scripts-and-Resources
+a repository of references materials, vignettes, scripts, tutorials for the bioconductor packages that I use for analyses. This was created to help organize my projects and prevent me from rewriting code because I can't find the original script.
 
-# Bioconductor cheat sheet
+# Bioconductor Cheatsheet
 Also useful:
 [PH525x Statistics for Genomics Book](http://http://genomicsclass.github.io/book/)
-and
-[Kasper Daniel Hansen's Bioconductor class notes](http://kasperdanielhansen.github.io/genbioconductor/).
+,
+[Kasper Daniel Hansen's Bioconductor class notes](http://kasperdanielhansen.github.io/genbioconductor/)
+, and
+[Bioconductor support website]:(https://support.bioconductor.org).
 
 ## Install
-
 For details go to http://bioconductor.org/install/
 
 ```
+source("https://bioconductor.org/biocLite.R")
+BiocInstaller::biocLite("package1")
+
 if (!requireNamespace("BiocManager"))
     install.packages("BiocManager")
-BiocManager::install()
-BiocManager::install(c("package1","package2")
+BiocManager::install(c("package1", "package2"))
 BiocManager::valid() # are packages up to date?
 
 # what Bioc version is release right now?
@@ -24,7 +27,7 @@ http://bioconductor.org/bioc-version
 http://bioconductor.org/js/versions.js
 ```
 
-## help within R
+## Help in R
 
 Simple help:
 
@@ -51,8 +54,6 @@ methods(class="GRanges") # this will work in R >= 3.2
 sessionInfo() # necessary info for getting help
 packageVersion("foo") # what version of package 
 ```
-
-Bioconductor support website: https://support.bioconductor.org
 
 If you use RStudio, then you already get nicely rendered documentation using `?` or `help`. If you are a command line person, then you can use this alias to pop up a help page in your web browser with `rhelp functionName packageName`.
 
