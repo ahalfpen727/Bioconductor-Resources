@@ -7,7 +7,7 @@ Also useful:
 ,
 [Kasper Daniel Hansen's Bioconductor class notes](http://kasperdanielhansen.github.io/genbioconductor/)
 , and
-[Bioconductor support website]:(https://support.bioconductor.org).
+[Bioconductor support website](https://support.bioconductor.org).
 
 ## Install
 For details go to http://bioconductor.org/install/
