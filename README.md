@@ -2,7 +2,7 @@
 a repository of references materials, vignettes, scripts, tutorials for the bioconductor packages that I use for analyses. This was created to help organize my projects and prevent me from solving the same problem twice or rewriting code because I can't find it
 
 # Bioconductor cheat sheet
-Also usefu:
+Also useful:
 [PH525x Statistics for Genomics Book](http://http://genomicsclass.github.io/book/)
 and
 [Kasper Daniel Hansen's Bioconductor class notes](http://kasperdanielhansen.github.io/genbioconductor/).
