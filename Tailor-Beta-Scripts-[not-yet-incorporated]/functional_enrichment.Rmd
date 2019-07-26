@@ -1,0 +1,152 @@
+---
+title: "Functional Enrichment Analysis"
+author: "Duanchen Sun, Ling-Yun Wu"
+date: '`r Sys.Date()`'
+output: pdf_document
+number_sections: yes
+---
+   
+   
+# NetGen: Network-based Generative Model
+   
+   NetGen is a network-based generative model for functional enrichment analysis. We first load the required packages
+
+```{r}
+#devtools::install_git(url="https://github.com/wulingyun/CopTea.git",)
+library(CopTea)
+options(scipen=0)
+```
+
+In this example, we use a small subset of GO annotation database, which contains 300 biological processes categories.
+```{r}
+x<-read_csv(file="./GO_BP_300.RData")
+files<-dir()
+
+x<-load(file=files[3],)
+x
+```
+The annotation data is stored in a matrix with dimensions:
+```{r}
+dim(annotation)
+```
+which indicates there are total 6447 genes and 300 GO terms in this annotation dataset.
+
+Next, we load the protein-protein interaction (PPI) dataset:
+```{r}
+#load("PPI.RData")	
+load(dir()[4])
+```
+The PPI network is given by its adjacent matrix as follows:
+```{r}
+dim(adj_matrix)
+```
+
+We simulate the gene list of interest:
+```{r}
+#load("active_gene.RData")
+load(dir()[1])
+```
+The list consists of 84 active genes which are derived from the true categories as follows.
+```{r}
+True_Categories <- c("GO:0019614", "GO:1903249", "GO:2000506", "GO:0015985", "GO:0071962")
+```
+
+## Mode1: fixed parameter strategy
+
+In the first part of this example, we try to identify the most enriched categories using a given parameter setting.
+```{r}
+Enriched_Categories <- netgen(annotation, adj_matrix, active_gene,
+                              p1 = 0.8, p2 = 0.1, q = 0.001, alpha = 5, trace=TRUE)
+```
+
+The most enriched categories identified by NetGen are
+```{r}
+Enriched_Categories
+```
+and the false negative categories are
+```{r}
+setdiff(True_Categories, Enriched_Categories[,1])
+```
+
+## Mode2: mixed parameter strategy
+
+Instead of using a fixed parameter setting, we can run NetGen with several different parameter settings,
+and then select the result of highest enrichment significance.
+```{r}
+p1 <- c(0.5, 0.8)
+p2 <- c(0.1, 0.3)
+q  <- 0.001
+Enriched_Categories <- netgen(annotation, adj_matrix, active_gene,
+                              p1, p2, q, alpha = 3, trace=FALSE)
+```
+The combined p-values of mixed parameter strategy are
+```{r}
+Enriched_Categories$Term_combined_pvalue
+```
+And the most enriched categories and its corresponding parameter combination are
+```{r}
+Enriched_Categories$mix_result[which.min(Enriched_Categories$Term_combined_pvalue)]
+```
+
+# CEA: Combination-based Enrichment Analysis model
+
+CEA is a novel combination-based method for gene set functional enrichment analysis. It is based on a multi-objective optimization framework, and the adapted IMPROVED GREEDY algorithm was used to approximatively solve the problem. 
+
+We first load the required packages
+
+```{r}
+library(CopTea)
+options(scipen=0)
+```
+
+In this example, we use the same GO annotation database and the active gene list.
+```{r}
+load("GO_BP_300.RData")
+load("active_gene.RData")
+```
+
+The list consists of 84 active genes which are derived from the true categories as follows:
+```{r}
+True_Categories <- c("GO:0019614", "GO:1903249", "GO:2000506", "GO:0015985", "GO:0071962")
+```
+
+Note that, not all the active genes are annotated in the annotation matrix.
+```{r}
+sum(active_gene %in% rownames(annotation))
+```
+
+We use the CEA function to identify the most enriched catgories.
+```{r}
+Enrich_result <- CEA(annotation, active_gene, d = 0, times = 5, trace = TRUE)
+```
+
+The result contains the following components:
+```{r}
+names(Enrich_result)
+```
+
+For example, we select the most enriched 5 category sets as the final outputs. These are:
+```{r}
+Enrich_result$category[1:5]
+```
+
+The related Fisher's exact test p-values and coverages are:
+```{r}
+Enrich_result$p.values[1:5]
+Enrich_result$coverage[1:5]
+```
+
+The false negative categories in the first category set are
+```{r}
+setdiff(True_Categories, Enrich_result$category[[1]])
+```
+
+We can obtain a more enriched result by setting a larger tolerance parameter d as:
+```{r}
+Enrich_result <- CEA(annotation, active_gene, d = 1, times = 500, trace = FALSE)
+```
+
+The Fisher's exact test p-value of the most enriched category is:
+```{r}
+Enrich_result$p.values[1]
+```

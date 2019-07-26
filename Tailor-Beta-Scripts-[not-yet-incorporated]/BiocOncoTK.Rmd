@@ -1,0 +1,370 @@
+---
+title: "BiocOncoTK: a set of cancer-oriented software components for Bioconductor"
+author: "Vincent J. Carey, stvjc at channing.harvard.edu"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{BiocOncoTK -- cancer oriented components for Bioconductor}
+  %\VignetteEncoding{UTF-8}
+output:
+  BiocStyle::pdf_document:
+    toc: yes
+    number_sections: yes
+  BiocStyle::html_document:
+    highlight: pygments
+    number_sections: yes
+    theme: united
+    toc: yes
+---
+
+```{r setup,echo=FALSE,results="hide"}
+suppressPackageStartupMessages({
+suppressMessages({
+library(BiocOncoTK)
+library(BiocStyle)
+library(dplyr)
+library(DBI)
+library(magrittr)
+library(pogos)
+library(org.Hs.eg.db)
+})
+})
+```
+
+# Overview
+
+This package provides a unified approach to programming with Bioconductor
+components to address problems in cancer genomics.  Central concerns are:
+
+- __Ontology applications__ that systematize the conceptual structure of
+cancer biology.  There are particular concerns with structured vocabularies for
+    - general human anatomy 
+    - experimental cell lines
+    - cancer therapeutics
+    - genome and epigenome elements and alterations related to cancer
+- __Communications infrastructure__ to support extraction and analysis of well-structured, self-describing
+data from public archives and portals.  Key resource centers of interest include
+    - [TCGA](https://cancergenome.nih.gov/), with curated representations through
+        - the [ISB Cancer Genomics Cloud project](http://cgc.systemsbiology.net/)
+        - Bioconductor's [curatedTCGAData](https://bioconductor.org/packages/curatedTCGAData/) interface
+    - [TARGET](https://ocg.cancer.gov/programs/target) through ISB-CGC
+    - [cBioPortal](http://www.cbioportal.org/); our main concern is to simplify usage of the RESTful API with R
+    - [CLUE](http://clue.io), "a cloud-based software platform for the analysis of perturbational datasets generated using gene expression (L1000) and proteomic (P100 and GCP) assays"
+    - [Ivy Glioblastoma Atlas Project](http://glioblastoma.alleninstitute.org/)
+    - [TCIA](http://www.cancerimagingarchive.net/), with radiology and pathology
+components available through [ISB/BigQuery](http://isb-cancer-genomics-cloud.readthedocs.io/en/latest/sections/TCGA-images.html)
+    - [TCRN](https://cancerdatanetwork.org/): the TIES (Text Information Extraction System) Cancer Research Network -- we'll have to learn more about [JWT with httr](https://cran.r-project.org/web/packages/jose/vignettes/jwt.html) before progressing with this
+    - [CONQUER](http://imlspenticton.uzh.ch:3838/conquer/), an archive of uniformly processed __single-cell RNA-seq__ datasets, a number of which related to cancer.  We have 'curated' CONQUER's version of the GBM
+single cell study of [Patel et al. 2014](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4123637/)
+in the [patelGBMSC package](https://github.com/vjcitn/patelGBMSC), with the large data component
+in an AWS S3 bucket.
+- __Remote analysis support__ to "move the computation to the data".  Bridging [Google Cloud Datalab](https://cloud.google.com/datalab/) to the ISB TCGA and CCLE images is a first target.
+- __Social coding practice__: at present, users and developers should use the [issue tracker](https://github.com/vjcitn/BiocOncoTK/issues)
+at the [BiocOncoTK github repository](https://github.com/vjcitn/BiocOncoTK) to comment, critique, and propose new approaches.
+
+# Ontology
+
+## Oncotree
+
+The NCI Thesaurus project distributes an OBO representation of oncotree.  We
+can use this through the `r Biocpkg("ontoProc")` (devel branch only) and `r CRANpkg("ontologyPlot")`
+packages.  Code for visualizing the location of 'Glioblastoma' in the context of its 'siblings'
+in the ontology follows.
+
+```{r lkgbm,fig=TRUE,message=FALSE}
+library(ontoProc)
+library(ontologyPlot)
+oto = getOncotreeOnto()
+glioTag = names(grep("Glioblastoma$", oto$name, value=TRUE))
+st = siblings_TAG(glioTag, oto, justSibs=FALSE)
+onto_plot(oto, st@ontoTags, fontsize=50)
+```
+
+# Resource interfaces
+
+## TARGET
+
+We assume that an ISB-CGC Google BigQuery billing number
+is assigned to the environment variable `CGC_BILLING`.
+
+First we list the tables available and have a look at the
+RNA-seq table.
+```{r lktarg, message=FALSE,eval=FALSE}
+billco = Sys.getenv("CGC_BILLING")
+if (nchar(billco)>0) {
+  con = DBI::dbConnect(bigrquery::dbi_driver(), project="isb-cgc",
+     dataset="TARGET_hg38_data_v0", billing=billco)
+  DBI::dbListTables(con)
+  con %>% tbl("RNAseq_Gene_Expression") %>% glimpse()
+  }
+```
+```
+## Observations: NA
+## Variables: 16
+## $ project_short_name <chr> "TARGET-RT", "TARGET-RT", "TARGET-RT", "TARGE...
+## $ case_barcode       <chr> "TARGET-52-PARPFY", "TARGET-52-PARPFY", "TARG...
+## $ sample_barcode     <chr> "TARGET-52-PARPFY-11A", "TARGET-52-PARPFY-11A...
+## $ aliquot_barcode    <chr> "TARGET-52-PARPFY-11A-01R", "TARGET-52-PARPFY...
+## $ gene_name          <chr> "RIC8B", "ATOH7", "ZNF532", "XKR5", "RP11-33O...
+## $ gene_type          <chr> "protein_coding", "protein_coding", "protein_...
+## $ Ensembl_gene_id    <chr> "ENSG00000111785", "ENSG00000179774", "ENSG00...
+## $ Ensembl_gene_id_v  <chr> "ENSG00000111785.17", "ENSG00000179774.8", "E...
+## $ HTSeq__Counts      <int> 2396, 35, 5367, 17, 323, 1718, 1, 4, 3151, 25...
+## $ HTSeq__FPKM        <dbl> 3.212811104, 0.247184268, 4.693986615, 0.0353...
+## $ HTSeq__FPKM_UQ     <dbl> 7.790066e+04, 5.993448e+03, 1.138145e+05, 8.5...
+## $ case_gdc_id        <chr> "5cdd05ea-5285-50b7-971a-8bc005d01669", "5cdd...
+## $ sample_gdc_id      <chr> "7448bf2b-4ba0-5f98-ad0f-e87fa6619a43", "7448...
+## $ aliquot_gdc_id     <chr> "TARGET-52-PARPFY-11A-01R", "TARGET-52-PARPFY...
+## $ file_gdc_id        <chr> "f31fe296-402e-4e7d-b072-e4a6571a9c8a", "f31f...
+## $ platform           <chr> "Illumina", "Illumina", "Illumina", "Illumina...
+```
+
+Now let's see what tumor types are available.
+```{r lklk, message=FALSE, warning=FALSE,eval=FALSE}
+if (nchar(billco)>0) {
+  con %>% tbl("RNAseq_Gene_Expression") %>% 
+      select(project_short_name) %>%
+      group_by(project_short_name) %>%
+      summarise(n=n())
+}
+```
+```
+## # Source: lazy query [?? x 2]
+## # Database: BigQueryConnection
+##   project_short_name        n
+##   <chr>                 <int>
+## 1 TARGET-NBL          9495831
+## 2 TARGET-AML         11310321
+## 3 TARGET-RT            302415
+## 4 TARGET-WT           7983756
+```
+
+NBL is neuroblastoma, RT is rhabdoid tumor, WT is
+Wilms' tumor.
+
+## CCLE
+
+Figure 3a of Barretina et al 2012 shows that cell lines with
+NRAS mutations can be ordered according to a measure of
+PD-0325901 activity, and that this drug activity measure
+is correlated with expression of AHR.  We will acquire the
+mutation and expression data using BigQuery as provided by ISB.
+
+Here is a listing of all tables:
+```{r lkccle2, message=FALSE, eval=FALSE}
+billco = Sys.getenv("CGC_BILLING")
+if (nchar(billco)>0) {
+  con = DBI::dbConnect(bigrquery::dbi_driver(), project="isb-cgc",
+     dataset="ccle_201602_alpha", billing=billco)
+  DBI::dbListTables(con)
+}
+```
+```
+## [1] "AffyU133_RMA_expression" "Copy_Number_segments"   
+## [3] "DataFile_info"           "Mutation_calls"         
+## [5] "Sample_information"      "fastqc_metrics"
+```
+
+### Mutation data
+
+<!--
+ [1] "CCLE_bioclin_v0"     "GDC_metadata"        "GTEx_v7"            
+ [4] "QotM"                "TARGET_bioclin_v0"   "TARGET_hg38_data_v0"
+ [7] "TCGA_bioclin_v0"     "TCGA_hg19_data_v0"   "TCGA_hg38_data_v0"  
+[10] "Toil_recompute"      "ccle_201602_alpha"   "genome_reference"   
+
+# CCLE datasets
+[1] "AffyU133_RMA_expression" "Copy_Number_segments"   
+[3] "DataFile_info"           "Mutation_calls"         
+[5] "Sample_information"      "fastqc_metrics"         
+-->
+
+First we get an overview of the content:
+
+```{r lkmucc,eval=FALSE}
+muttab = con %>% tbl("Mutation_calls")
+length(muttab %>% colnames())
+muttab %>% select(Cell_line_primary_name, Hugo_Symbol, 
+   Variant_Classification, cDNA_Change)%>% glimpse()
+```
+```
+## [1] 53
+```
+
+Now let's filter by NRAS and get a feel for how many
+observations are returned per cell line.
+
+```{r lknras, warning=FALSE,eval=FALSE}
+nrastab = muttab %>% select(Variant_Classification, Hugo_Symbol, 
+    Cell_line_primary_name, CCLE_name) %>%
+     filter(Hugo_Symbol == "NRAS") %>% group_by(Hugo_Symbol) 
+nrastab %>% summarise(n=n())
+nrasdf = nrastab %>% as.data.frame()
+```
+
+We need to carve up the CCLE name to get the organ.
+```{r dospl,eval=FALSE}
+spl = function(x) {
+  z = strsplit(x, "_")
+  fir = vapply(z, function(x)x[1], character(1))
+  rest = vapply(z, function(x) paste(x[-1], collapse="_"), character(1))
+  list(fir, rest)
+}
+nrasdf$organ = spl(nrasdf$CCLE_name)[[2]]
+```
+```{r getmodnr,echo=FALSE}
+nrasdf = load_nrasdf()
+```{r illus}
+head(nrasdf)
+table(nrasdf$organ)
+prim_names = as.character(nrasdf$Cell_line_primary_name)
+```
+
+
+### Expression data
+
+Let's obtain the expression of AHR for these NRAS-mutated cell lines.
+
+```{r lkccleex, message=FALSE, warning=FALSE, eval=FALSE}
+ccexp = con %>% tbl("AffyU133_RMA_expression") 
+ccexp %>% glimpse()
+ccexp %>% select(Cell_line_primary_name, RMA_normalized_expression,
+    HGNC_gene_symbol) %>% filter(HGNC_gene_symbol == "AHR") %>% 
+    filter(Cell_line_primary_name %in% nrasdf$Cell_line_primary_name) %>%
+    as.data.frame() -> NRAS_AHR
+head(NRAS_AHR)
+```
+```{r domockahr,echo=FALSE}
+NRAS_AHR = load_NRAS_AHR()
+head(NRAS_AHR)
+```
+
+### Drug responsiveness data from CCLE, using pogos
+
+The pogos package (submitted, see github.com/vjcitn/pogos)
+includes software to query pharmacodb.pmgenomics.ca.
+We will use this to develop drug-response profiles
+for PD-0325901.
+
+```{r dopog,eval=FALSE}
+library(pogos)
+ccleNRAS = DRTraceSet(NRAS_AHR[,1], drug="PD-0325901")
+plot(ccleNRAS)
+```
+```{r dopogmock,echo=FALSE,results="hide",fig=TRUE}
+ccleNRAS = load_ccleNRAS()
+plot(ccleNRAS)
+```
+
+We'll define a responsiveness method, that takes a function f
+that is applied to the responses component of the dose-response
+profile.
+```{r drrr}
+responsiveness = function (x, f) 
+{
+    r = sapply(x@traces, function(x) f(x@DRProfiles[[1]]@responses))
+    data.frame(Cell_line_primary_name = x@cell_lines, resp = r, 
+        drug = x@drug, dataset = x@dataset)
+}
+```
+
+The activity area for a compound in this design is defined as
+```{r lkaa}
+AA = function(x) sum((pmax(0, x/100)))
+head(rr <- responsiveness(ccleNRAS, AA))
+summary(rr$resp)
+```
+This is based on the supplement to Barretina et al. 2012.  (There
+a slightly different formula in the addendum which uses notation that includes
+multiplying by a factor of i for
+dose index level i.)
+
+Let's merge the responsiveness data with the expression data for
+gene AHR.
+
+```{r mrg}
+rexp = merge(rr, NRAS_AHR)
+rexp[1:2,]
+```
+
+### CLUE
+
+The CLUE platform is an interface to results of work on the connectivity map at Broad
+Institute.  Usage of functions in this toolkit requires an API key, which can be
+acquired through registration at clue.io.  Set the environment variable
+`CLUE_KEY` so that it can be found by `Sys.getenv` to use default `key` parameter
+to functions described here.
+
+A basic purpose of the interface to CLUE is to allow identification of
+gene signatures of perturbations in specific cellular contexts.
+
+We have serialized data on cell lines and perturbagens available in
+the GSE70138 snapshot of LINCS.
+
+```{r lkda}
+data(cell_70138)
+names(cell_70138)
+table(cell_70138$primary_site)
+data(pert_70138)
+dim(pert_70138)
+names(pert_70138)
+```
+
+A number of API services have demonstration query expressions available
+in the package:
+```{r lkdem}
+cd = clueDemos()
+names(cd)
+cd$sigs
+```
+
+We use `query_clue` to query a service.  Here we ask for
+perturbagens that have EGFR among their targets.  We'll retrieve
+a single 'gold' signature identifier.
+
+```{r lkp1}
+if (nchar(Sys.getenv("CLUE_KEY"))>0) {
+lkbytarg = query_clue(service="perts", filter=list(where=list(target="EGFR")))
+print(names(lkbytarg[[1]]))
+sig1 = lkbytarg[[1]]$sig_id_gold[1]
+}
+```
+
+Now we obtain the metadata about this signature.
+```{r lkp2}
+if (nchar(Sys.getenv("CLUE_KEY"))>0) {
+sig1d = query_clue(service="sigs", filter=list(where=list(sig_id=sig1)))
+print(names(sig1d[[1]]))
+print(head(sig1d[[1]]$pert_iname)) # perturbagen
+print(head(sig1d[[1]]$cell_id))  # cell type
+print(head(sig1d[[1]]$dn50_lm))  # some downregulated genes among the landmark
+print(head(sig1d[[1]]$up50_lm))  # some upregulated genes among the landmark
+}
+```
+
+#### Example
+
+Task: Assess the effects of perturbagens on transcription
+in the NPC cell line.  We'll check for recurrence of landmark
+genes among the top 50 upregulated for perturbagens that
+are identified as HDAC inhibitors.
+
+
+```{r lknpc, cache=TRUE}
+# use pertClasses() to get names of perturbagen classes in Clue
+tuinh = query_clue("perts", 
+   filter=list(where=list(pcl_membership=list(inq=list("CP_HDAC_INHIBITOR"))))) 
+inames_tu = sapply(tuinh, function(x)x$pert_iname)
+
+npcSigs = query_clue(service="sigs", filter=list(where=list(cell_id="NPC")))
+length(npcSigs)
+gns = lapply(npcSigs, function(x) x$up50_lm)
+perts = lapply(npcSigs, function(x) x$pert_iname)
+touse = which(perts %in% inames_tu)
+rec = names(tab <- sort(table(unlist(gns[touse])),decreasing=TRUE)[1:5])
+cbind(select(org.Hs.eg.db, keys=rec, columns="SYMBOL"), n=as.numeric(tab))
+```
+
+We could abstract from this process a function that takes perturbagen classes
+and cell lines to deliver collections of LINCS signatures of genes considered
+to produce transcriptional activities of certain kinds.

@@ -1,0 +1,108 @@
+#!/bin/bash
+##  reference https://www.ibm.com/support/knowledgecenter/en/SSWRJV_10.1.0/lsf_welcome/lsf_kc_cmd_ref.html 
+#get Host name
+hostname
+
+# move pending job to the end of queue
+bbot 140
+#move pending job to the top of queue
+btop 140
+
+#get status of a job
+bjobs
+
+#suspend a job
+bstop 140
+#suspend last submited job
+bstop -u all 
+
+#Kills all the jobs that are in the queue short.
+bkill -q short -u all 0
+
+#switch job between queues
+bswitch -J Jobname -q long
+
+
+#To run Batch shell session
+bsub -q long hostname
+
+#BSUB -n X                   # Where X is in the set {1..X}
+#BSUB -J Bowtie_job          # Job Name
+#BSUB -o myjob.out           # Append to output log file
+#BSUB -e myjob.err           # Append to error log file
+#BSUB -oo myjob.log          # Overwrite output log file 
+#BSUB -eo myjob.err          # Overwrite error log file 
+#BSUB -q short               # Which queue to use {short, long, parallel, GPU, interactive}
+#BSUB -W 0:15                # How much time does your job need (HH:MM)
+#BSUB -L /bin/sh             # Shell to use
+
+#submit sample job
+
+bsub -q short -R rusage[mem=1024] -W 2 < /project/umb_triley/cpct/rna-seq/urine1/ClassificationScripts/sampleJob.sh
+
+#Submitting jobs with variables as input
+# run bowtie.sh script for each file in the directory 
+for F in `ls -1` ; do
+     bsub -n 2 -q short bowtie.sh "$F" ;
+done
+
+#submitting an array job for file.1 to file.1000
+
+bsub -W 1:0 -R "rusage[mem=1024]" -J "myarray[1-1000]" "process file.\$LSB_JOBINDEX"
+
+
+#status of submitted jobs
+
+bjobs
+
+#JOBID   USER    STAT  QUEUE      FROM_HOST   EXEC_HOST   JOB_NAME   SUBMIT_TIME
+#592574  cjh     RUN   priority   ghpcc06     12*c05b02   *etest[24] Jul 16 12:51
+#592574  cjh     RUN   priority   ghpcc06     12*c05b15   *etest[29] Jul 16 12:51
+#592574  cjh     RUN   priority   ghpcc06     12*c04b03   *etest[14] Jul 16 12:51
+#592574  cjh     RUN   priority   ghpcc06     12*c04b03   *etest[15] Jul 16 12:51
+#592574  cjh     RUN   priority   ghpcc06     12*c04b03   *etest[16] Jul 16 12:51
+
+
+#----JOB SUBMISSION PARAMETERS---------------------------------------------------------------------
+PROCESSORS=1
+MEMORY="25192"       # PER PROCESSOR!! - 2048=2G, 4096=4G, 8192=8G, 16384=16G, 32768=32G, 65536=64G
+DURATION="72:00"   # HH:MM - 72:00=3 days, 96:00=4 days, 192:00=8 days, 384:00=16 days
+QUEUE="long"        # short = max 4 hours;   long = max 30 days
+#--------------------------------------------------------------------------------------------------
+
+#----PATHS-----------------------------------------------------------------------------------------
+INPUT="${TOPHAT_INPUT}"
+OUTPUT="${TOPHAT_OUTPUT}"
+SCRIPTS=${OUTPUT}/${JOBS_SCRIPTS_DIR}
+JOBS=${OUTPUT}/${JOBS_OUT_DIR}
+#--------------------------------------------------------------------------------------------------
+
+
+#General Command 
+#--------------------------------------------------------------------------------------------------
+
+SUBMIT_COMMAND="bsub -q $QUEUE -J ${SAMPLE}-${COMMAND} -n ${PROCESSORS}  -R rusage[mem=${MEMORY}] -W ${DURATION} -u ${LSB_MAILTO} -B -o ${JOBS}/${COMMAND}-${SAMPLE}.%J.out -e ${JOBS}/${COMMAND}-${SAMPLE}.%J.error bash ${tempScript}"
+
+
+#TopHat
+#--------------------------------------------------------------------------------------------------
+
+tophat -p 1 -g 1 -G /project/umb_triley/genomes/Homo_sapiens/UCSC/hg19/Annotation/Genes/genes.gtf --coverage-search --microexon-search --fusion-search --library-type fr-firststrand -o tophat_results_hg19/Sample_14_out /project/umb_triley/genomes/Homo_sapiens/UCSC/hg19/Sequence/Bowtie2Index/genome trim_results_default/Sample_14_R1_val_1.fq.gz trim_results_default/Sample_14_R2_val_2.fq.gz
+
+#Trim Glore
+#--------------------------------------------------------------------------------------------------
+
+trim_galore --clip_R1 8 --paired --retain_unpaired createLinks_results_default/Sample_14_R1.fastq.gz createLinks_results_default/Sample_14_R2.fastq.gz --fastqc_args "--outdir postTrim_fastqc_results_default/" --output_dir trim_results_default
+
+
+#Cufflink
+#--------------------------------------------------------------------------------------------------
+
+
+cufflinks -p 2 -N -u -g /project/umb_triley/genomes/Homo_sapiens/NCBI/GRCh38/Annotation/Genes/genes.gtf -b /project/umb_triley/genomes/Homo_sapiens/NCBI/GRCh38/Sequence/Chromosomes -o cufflinks_results_grch38_gtf_only/Sample_17_out tophat_results_grch38/Sample_17_out/accepted_hits.bam
+
+
+#CUFFLINK
+#--------------------------------------------------------------------------------------------------
+
+cuffdiff -p 2 -L CTRL,LUTS -b /project/umb_triley/cpct/rna-seq/drew_mods/ENSEMBL_ref/Homo_sapiens/NCBI/GRCh38/Sequence/Chromosomes -o cuffdiff_results_GRCh38_gtf_only/LUTS-over-CTRL cuffcompare_merge_results_GRCh38_gtf_only/cuffcmp.combined.gtf cuffquant_results_GRCh38_gtf_only/Sample_3_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_5_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_7_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_9_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_11_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_13_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_15_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_17_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_19_out/abundances.cxb cuffquant_results_GRCh38_gtf_only/Sample_4_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_6_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_8_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_10_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_12_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_14_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_16_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_18_out/abundances.cxb,cuffquant_results_GRCh38_gtf_only/Sample_20_out/abundances.cxb

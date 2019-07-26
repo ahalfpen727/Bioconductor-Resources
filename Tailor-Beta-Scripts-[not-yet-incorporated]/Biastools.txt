@@ -1,0 +1,309 @@
+library("pracma")
+
+pcacorr <- function(clust, filled) {
+	
+	cora = matrix(0, dim(clust)[1],dim(clust)[2])
+	
+	for(i in 1:dim(clust)[1]){
+		for(j in 1:dim(clust)[2]){
+			
+			div = 0
+			if(filled[i,j] == 1){
+				for(k in max(1,i-1):min(dim(clust)[1],i+1)){
+					for(v in max(1,j-1):min(dim(clust)[2],j+1)){
+						if(!(i==k && j==v)){
+							if(filled[k,v] == 1){
+								div = div+1
+								cora[i,j] = cora[i,j]+clust[k,v]
+							}
+						}
+					}
+				}
+				
+				if(div == 0){
+					filled[i,j] = 0
+				}
+				cora[i,j] = cora[i,j]/div
+			}
+		}
+	}
+	
+	return(cor(c(clust)[which(c(filled)==1)],c(cora)[which(c(filled)==1)],method="spearman"))
+}
+
+getNeighborCount <- function(filled){
+	
+	rowcount = nrow(filled)
+	colcount = ncol(filled)
+	
+	ncount = matrix(0, rowcount, colcount)
+	
+	for(i in 1:dim(filled)[1]){
+		for(j in 1:dim(filled)[2]){
+			if(filled[i,j] == 1){
+				for(k in max(1,i-1):min(dim(filled)[1],i+1)){
+					for(v in max(1,j-1):min(dim(filled)[2],j+1)){
+						if(!(i==k && j==v)){
+							if(filled[k,v] == 1){
+								ncount[i,j] = ncount[i,j]+1
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	return(ncount)
+}
+
+getTopology <- function(platelab, rownumber, colnumber){
+	
+	l = list()
+	
+	cont = matrix(0,rownumber,colnumber)
+	
+	s1 = substr(platelab, 1,1)
+	row = as.numeric(substr(platelab, 2,3))
+	col = match(s1, toupper(letters))
+	
+	cont[cbind(row,col)] = 1
+	
+	l[[1]] = row
+	l[[2]] = col
+	l[[3]] = cont
+	
+	names(l) = c("row","col","filled")
+	
+	return(l)
+}
+
+
+corModifier <- function(x,offset=0.1,climb=1.5) {
+	x1 = ((x+offset)*2-1)*6
+	y1 = sigmoid(x1,a=climb)
+	return(y1)
+}
+
+returnBiasPC <- function(data, topo, sigma=0.15, cutoff=0.5){
+	sll = t(scale(t(data)))
+	sll[is.na(sll)] = 0
+	sll = sll + replicate(ncol(sll), rnorm(nrow(sll)))/1000
+	
+	sll2 = matrix(sll,nrow=nrow(sll))
+	dimnames(sll2) = dimnames(sll)
+	sll = sll2
+	
+	pp = prcomp(t(sll))
+	
+	clust = matrix(0,max(topo[[1]]), max(topo[[2]]))
+	
+	li = list()
+	
+	for(i in 1:ncol(pp$x)){
+		
+		clust[cbind(topo[[1]],topo[[2]])] = pp$x[,i]
+		
+		bias = pcacorr(clust, topo[[3]])
+		
+		if(corModifier(max(0,bias)) > cutoff){
+			li[[length(li)+1]] = pp$rotation[,i]
+			names(li)[length(li)] = i
+		}
+	}
+	
+	return(do.call(cbind, li))
+}
+
+getpcbias <- function(data, topo){
+	sll = t(scale(t(data)))
+	sll[is.na(sll)] = 0
+	sll = sll + replicate(ncol(sll), rnorm(nrow(sll)))/1000
+	
+	sll2 = matrix(sll,nrow=nrow(sll))
+	dimnames(sll2) = dimnames(sll)
+	sll = sll2
+	
+	pp = prcomp(t(sll))
+	
+	clust = matrix(0,max(topo[[1]]), max(topo[[2]]))
+	
+	li = list()
+	biases = c()
+	
+	for(i in 1:ncol(pp$x)){
+		
+		clust[cbind(topo[[1]],topo[[2]])] = pp$x[,i]
+		
+		bias = pcacorr(clust, topo[[3]])
+		biases = c(biases, bias)
+	}
+	
+	return(biases)
+}
+
+removeRandomVariance <- function(data, variance, epsilon=0.005){
+	
+	remVar = 0
+	
+	sll = t(scale(t(data)))
+	sll[is.na(sll)] = 0
+	sll = sll + replicate(ncol(sll), rnorm(nrow(sll)))/1000
+	
+	sll2 = matrix(sll,nrow=nrow(sll))
+	dimnames(sll2) = dimnames(sll)
+	sll = sll2
+	
+	pp = prcomp(t(sll))
+	vv = pp$sdev*pp$sdev
+	sdv = vv/sum(vv)
+	
+	presel = c()
+	
+	while(!(remVar <= variance+epsilon && remVar >= variance-epsilon)){
+		sa = sample(1:ncol(data),1)
+		if(!(length(intersect(presel, sa)) > 0) && (remVar+sdv[sa] <= variance+epsilon)){
+			remVar = remVar+sdv[sa]
+			presel = c(presel, sa)
+			pp$x[,sa] = 0
+		}
+	}
+	
+	return(pp$rotation%*%t(pp$x))
+}
+
+getpcbiasVar <- function(data, topo, offset){
+	sll = t(scale(t(data)))
+	sll[is.na(sll)] = 0
+	sll = sll + replicate(ncol(sll), rnorm(nrow(sll)))/1000
+	
+	sll2 = matrix(sll,nrow=nrow(sll))
+	dimnames(sll2) = dimnames(sll)
+	sll = sll2
+	
+	pp = prcomp(t(sll))
+	
+	clust = matrix(0,max(topo[[1]]), max(topo[[2]]))
+	
+	li = list()
+	biases = c()
+	
+	vv = pp$sdev*pp$sdev
+	sdv = vv/sum(vv)
+	
+	for(i in 1:ncol(pp$x)){
+		
+		clust[cbind(topo[[1]],topo[[2]])] = pp$x[,i]
+		
+		bias = pcacorr(clust, topo[[3]])
+		cm = corModifier(max(0,bias), offset)
+		biases = c(biases, cm*sdv[i])
+	}
+	
+	return(biases)
+}
+
+removeBias <- function(data, topo, offset=0.1){
+	
+	sll = t(scale(t(data)))
+	sll[is.na(sll)] = 0
+	sll = sll + replicate(ncol(sll), rnorm(nrow(sll)))/1000
+	
+	sll2 = matrix(sll,nrow=nrow(sll))
+	dimnames(sll2) = dimnames(sll)
+	sll = sll2
+	
+	pp = prcomp(t(sll))
+	
+	clust = matrix(0,max(topo[[1]]), max(topo[[2]]))
+	
+	for(i in 1:ncol(pp$x)){
+		clust[cbind(topo[[1]],topo[[2]])] = pp$x[,i]
+		bias = pcacorr(clust, topo[[3]])
+		pp$x[,i] = pp$x[,i]-pp$x[,i]*corModifier(max(0,bias), offset)
+	}
+	
+	return(pp$rotation%*%t(pp$x))
+}
+
+removeNoise <- function(data, start=30){
+	
+	sll = t(scale(t(data)))
+	sll[is.na(sll)] = 0
+	sll = sll + replicate(ncol(sll), rnorm(nrow(sll)))/1000
+	
+	sll2 = matrix(sll,nrow=nrow(sll))
+	dimnames(sll2) = dimnames(sll)
+	sll = sll2
+	
+	pp = prcomp(t(sll))
+	
+	for(i in start:ncol(pp$x)){
+		pp$x[,i] = 0
+	}
+	
+	return(pp$rotation%*%t(pp$x))
+}
+
+removeSingle <- function(data, topo, start=30){
+	
+	pp = prcomp(t(data))
+	clust[cbind(topo[[1]],topo[[2]])] = pp$x[,start]
+	
+	bias = pcacorr(clust, topo[[3]])
+	pp$x[,start] = 0
+	
+	return(list(pp$rotation%*%t(pp$x), pp$sdev[start], bias))
+}
+
+removeRange <- function(data, topo, from=1, to=1){
+	
+	pp = prcomp(t(data))
+	
+	for(i in from:to){
+		clust[cbind(topo[[1]],topo[[2]])] = pp$x[,i]
+		
+		bias = pcacorr(clust, topo[[3]])
+		pp$x[,i] = 0
+	}
+	
+	return(pp$rotation%*%t(pp$x))
+}
+
+computeGeneBias <- function(data, topo){
+	
+	biases = c()
+	clust = matrix(0,max(topo[[1]]), max(topo[[2]]))
+	
+	for(i in 1:nrow(data)){
+		clust[cbind(topo[[1]],topo[[2]])] = data[i,]
+		bias = pcacorr(clust, topo[[3]])
+		biases = c(biases, bias)
+	}
+	
+	return(biases)
+}
+
+plotBias <-function(clust, topo, header=""){
+	x <- (1:nrow(clust))
+	y <- (1:ncol(clust))
+	
+	colo = colorRampPalette(c("blue","green","yellow","red"))
+	
+	image(x, y, fliplr(clust), main=header, axes=FALSE, xlab="", ylab="", srt=45, cex=0.5, col=colo(100))
+	axis(2, at = 1:ncol(clust), labels=rev(LETTERS[seq( from = 1, to = ncol(clust))]), srt=45, tick=FALSE, cex.axis=0.7, pos=1)
+	axis(3, at = 1:nrow(clust), labels=1:nrow(clust), srt=45, tick=FALSE, cex.axis=0.6, pos=16)
+	
+	# If the plate has no empty wells, the empty1 object will be empty
+	empty1 <- which(fliplr(topo$filled) == 0, arr.ind=T)
+	
+	# This will grey out the empty wells and put crosses on them
+	if(nrow(empty1)!=0){
+		for(i in 1:nrow(empty1)){
+			rect(empty1[i,1]-0.5, empty1[i,2]-0.5, empty1[i,1]+0.5, empty1[i,2]+0.5,col="grey",border="darkgrey")
+			segments(empty1[i,1]-0.5, empty1[i,2]-0.5, empty1[i,1]+0.5, empty1[i,2]+0.5, lwd=1, col="black")
+			segments(empty1[i,1]-0.5, empty1[i,2]+0.5, empty1[i,1]+0.5, empty1[i,2]-0.5, lwd=1, col="black")
+		}
+	}		
+}
+

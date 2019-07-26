@@ -1,0 +1,403 @@
+\documentclass{article}
+\usepackage{geometry}
+\usepackage{fullpage}
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+
+
+<<setup, include=FALSE, cache=FALSE>>=
+library(igraph); library(Hmisc); library(cummeRbund)
+library(ellipse); library(limma); library(edgeR)
+library(pvclust); library(gplots); library(Hmisc)
+library(readxl); library(knitr)
+
+@
+
+
+\author{Andrew Judell-Halfpenny}
+\title{Drosophila Analysis}
+\date{August 2018}
+\maketitle
+\begin{center}
+    \large{\textbf{A genetic, genomic, and computational resource for exploring drosophila neural circuit funtion}}\\
+\end{center}
+\begin{flushleft}
+\textbf{\large{Comparison of Rh8_Rh5 to Rh8_Rh6}}\\
+\end{flushleft}
+
+%\begin{center}
+%    \large{\textbf{Question 1}}\\
+%\end{center}
+
+Comparison of Rh5 and Rh6 phenotypes of the Rh8 photorecetpot
+<<include=TRUE>>=
+files<-dir()
+files
+gse116969<-grep(pattern="Rister_",files, ignore.case = T)
+gse116969.xlsx<-files[gse116969]
+gse116969.xlsx<-read_excel(gse116969.xlsx)
+gse116969.xlsx<-as.data.frame(gse116969.xlsx)
+colnames(gse116969.xlsx)
+dim(gse116969.xlsx)
+#gse.116969.xlsx<-gse116969.xlsx[unique(gse116969.xlsx[,"gene_name"]),]
+transcripts<-unique(gse116969.xlsx[,"transcript_id"])
+genes<-unique(gse116969.xlsx[,"gene_name"])
+row.names(gse116969.xlsx)=transcripts
+
+gse116969.df<-as.matrix(gse116969.xlsx[,-c(1:2)])
+gse116969<-as.matrix(gse116969.xlsx[,-c(1:3)])
+
+samps<-colnames(gse116969)
+genes<-row.names(gse116969)
+head(gse116969)
+dim(gse116969)
+isexpr <- rowSums(cpm(gse116969[]) > 1) >= 2
+gse116969<-gse116969[isexpr,]
+dim(gse116969)
+
+Rh6samps<-grep(pattern="Rh6", colnames(gse116969), ignore.case = T)
+Rh5samps<-grep(pattern="Rh5", colnames(gse116969), ignore.case = T)
+head(gse116969[,Rh6samps])
+head(gse116969[,Rh5samps])
+
+Rh8_Rh6s<-factor(grep(pattern="Rh6", colnames(gse116969), ignore.case = T))
+Rh8_Rh5s<-factor(grep(pattern="Rh5", colnames(gse116969), ignore.case = T))
+Rh8_Rh6group<-gse116969[,Rh8_Rh6s]
+Rh8_Rh5group<-gse116969[,Rh8_Rh5s]
+gseDesign = data.frame(row.names = colnames(gse116969),
+                       condition = c("Rh5", "Rh5", "Rh6","Rh6"))
+conditions<-factor(gseDesign$condition)
+
+Rh5group = gseDesign$condition == "Rh5"
+Rh6group = gseDesign$condition == "Rh6"
+
+Rh5samples.gene_exp = gse116969[,Rh5group]
+Rh6samples.gene_exp = gse116969[,Rh6group]
+
+Rh5.1<-Rh5samples.gene_exp[,"R8_Rh5_d1_rep1"]
+Rh5.2<-Rh5samples.gene_exp[,"R8_Rh5_d1_rep2"]
+
+Rh6.1<-Rh6samples.gene_exp[,"R8_Rh6_d1_rep1"]
+Rh6.2<-Rh6samples.gene_exp[,"R8_Rh6_d1_rep2"]
+@
+
+
+1) b) Analysis of gene expressions of B-cell ALL patients. How many patients are in each group?
+<<include=TRUE>>=
+t.test(x = Rh5.1, y = Rh5.2,alternative = "two.sided")
+wilcox.test(Rh5.1,Rh5.2, exact = FALSE, correct = FALSE) #large sample
+var.test(Rh5.1,Rh5.2)
+chisq.test(Rh5.1,Rh5.2)
+ks.test(Rh5.1,Rh5.2)  # perform ks test
+cor.test(Rh5.1,Rh5.2)
+
+
+t.test(x = Rh6.1, y = Rh6.2,alternative = "two.sided")
+wilcox.test(Rh6.1,Rh6.2, exact = FALSE, correct = FALSE) #large sample
+var.test(Rh6.1,Rh6.2)
+chisq.test(Rh6.1,Rh6.2)
+ks.test(Rh6.1,Rh6.2)  # perform ks test
+cor.test(Rh6.1,Rh6.2)
+@
+Answer:
+In the B group there are 5 patients.  In the B1 group there are 19 patients.  In the B2 group there are 36 patients.  In the B3 groupd there are 23 patients.  In the B4 group there are 12 patients.
+
+1) c) Test the normality of the residuals from the linear model used for the analysis of variance for all gene expression values.  Collect p values in a vector
+<<include=TRUE>>=
+
+Bexp<-grep("_at$|_st$",names(ALL_B))	
+ALL_B[ALL_B=="NA"]=NA
+p.vector<-apply(ALL_B[Bexp],2,function(x) 
+  shapiro.test(residuals(lm(x~ALL_B$BT)))$p.value)
+head(p.vector)	
+
+length(p.vector)
+
+mean(p.vector)
+
+sd(p.vector)
+
+IQR(p.vector)
+
+mad(p.vector)
+
+boxplot.stats(p.vector, coef=.5, do.conf=F, do.out=F)
+
+boxplot.default(p.vector,range=1.4,notch=T, 
+                col=c("blue","green","black"), 
+                horizontal=T, 
+                main="P-values from Shapiro-Wilk Normality Test" )
+
+hist(p.vector, ylab="Frequency",
+     xlab="P-Values", 
+     main="P-Values from Shapiro-Wilk normality test")
+
+grubbs.test(p.vector)
+
+sum(p.vector <= 0.05)
+
+sum(p.vector > 0.06)
+
+length(p.vector)
+
+ad.test(p.vector)
+
+summary(p.vector)
+
+@
+
+Answer:
+
+1) c) We reject the null hypothesis in favor of the alternate, the residuals from the linear model fitting the variance of gene expression are not normally distributed.  We can arrive this conclusion from the p value produced by the Anderson Darling normality test, 2.2e-16.  
+Additionally roughly half of the p values from the Shapiro-Wilk normality test support the rejection of the null hypothesis in favor of the alternate, that the residuals from the linear model fit of the variance of gene expression is not normally distributed.
+
+1) d) Do the same for the homoscedasticity assumption.
+
+<<include=TRUE>>=
+
+Bexp<-grep("_at$|_st$",names(ALL_B))
+
+
+bp_pval<-apply(ALL_B[Bexp],2,function(x) 
+  as.numeric(bptest(lm(x ~ ALL_B$BT),studentize=F)$p.value))
+
+sum(bp_pval <= 0.05)
+
+sum(bp_pval >= 0.06)
+
+mean(bp_pval)
+
+sd(bp_pval)
+
+hist(bp_pval, xlab="P-Value",
+     ylab="Frequency", 
+     main="Homoscedasticity Testing ALL B" )
+
+boxplot.stats(bp_pval, 
+              coef=.5, do.conf=F, do.out=F)
+
+boxplot.default(bp_pval,range=1.4,
+                notch=T,
+                col=c("blue","green","black"),
+                horizontal=T, 
+                main="P-values - Breusch-Pagan Test - Homoscedasticity" )
+
+var(bp_pval)
+
+grubbs.test(bp_pval)
+
+summary(bp_pval)
+
+@
+
+Answer:
+
+1) d)We fail to reject the null hypothesis, that our data are not significant enough to determine that the variance throughout the linear model fitting the gene expression is  not consistent.  We can arrive this conclusion from the relatively few p values that are within (less than) the significance threshold.
+
+
+1) e) How many genes have exhibit normally distributed gene expression and how many are homoscedastic?  How many are bot normally distributed and homoscedastic?
+<<include=TRUE>>=
+
+# normally distributed
+sum(p.vector >= 0.06)
+# homoscedastic
+sum(bp_pval >= 0.06)
+# homoscedastic and normaly istributed
+sum(bp_pval >= 0.06 & p.vector >= 0.06)
+
+@
+Answer:
+1) e)  There were 6635 p-values that suggested the gene expression was normally distributed.  There were 9838 p-values that suggested the gene expression values were homoscedastic.  There were 6004 probes that exhibited both normally distributed expression and homoscedastic variance.}
+
+\begin{center}
+   \large{\textbf{Question 1}}\\
+\end{center}
+
+2) Further analyze of gene expressions of B-cell ALL patients.  Continue with the previous data.fram containing the expression values for the B-cell ALL patients in stage B, B1, B2, B3, B4 from the ALL data.
+2) a) Collect the overall p-values from ANOVA in a vector.
+<<include=TRUE>>=
+
+ALL_B[ALL_B=="NA"]=NA
+
+anova_pval<-apply(ALL_B[Bexp],2, function(x) 
+  anova(lm(x ~ ALL_B$BT))$Pr[1])
+
+length(anova_pval)
+
+hist(anova_pval,
+     xlab="P-values", 
+     ylab="Frequency",
+     main="P-Values from ANOVA Analysis of gene expression")
+
+@
+
+
+2) b) Use the name function to report the affymetric IDs of the genes with smaller p-values than .000001
+
+<<include=TRUE>>=
+
+tiny_anova_pval<-ALL_B[anova_pval < 0.000001]
+
+names(tiny_anova_pval)
+
+length(tiny_anova_pval)
+
+@
+
+
+ Answer:
+2) a), b) There were 29 genes with pvalues below .000001.  The names of the genes are: "X1125_s_at"  "X1126_s_at"  "X1134_at" "X1389_at" "X1500_at"   "X1866_g_at"  "X1914_at" "X205_g_at" "X31472_s_at" "X31615_i_at" "X31616_r_at" "X33358_at" "X35614_at" "X35991_at"   "X36873_at"   "X37809_at" "X37902_at" "X38032_at" "X38555_at" "X39716_at" "X40155_at" "X40268_at" "X40493_at" "X40661_at" "X40763_at" "X41071_at" "X41139_at""X41448_at" "X873_at"    
+
+2) c),d) Collect the overall p-values from the Kruskal-Wallis test in a vector. Use the names function  to report the affymetric IDs of the genes with smaller p-values than .000001
+<<include=TRUE>>=
+
+Bexp<-grep("_at$|_st$",names(ALL_B))	
+
+
+kruskal_pvals<-apply(ALL_B[Bexp], 2, 
+                     function(x)kruskal.test(x~ALL_B$BT)$p.value)
+
+length(kruskal_pvals)
+
+hist(kruskal_pvals, 
+     xlab="P-values", 
+     ylab="Frequency", 
+     main="P-Values Kruskal-Wallist tests of gene expression")
+
+tiny_kruskal_pval<-ALL_B[kruskal_pvals < 0.000001]
+
+names(tiny_kruskal_pval)
+
+length(tiny_kruskal_pval)
+
+@
+
+Answer:
+2) c),d) There were 5 genes with pvalues below .000001 for the kruskal wallis test.  The names of the genes are "X1389_at",  "X1866_g_at", "X38555_at", "X40155_at", and  "X40268_at" 
+
+2) e) Briefly comment on the differences you observe. That is how many genes have p values smaller than 0.001 for both ANOVA and Kruskal-Wallis? How many have p-values smalller that 0.001 for only one test test? Hint: Collect TRUE/FALSES in logical vectors and use the table function.
+<<include=TRUE>>=
+
+small_kruskal_pval<-names(ALL_B[kruskal_pvals < 0.001])
+length(small_kruskal_pval)
+
+small_anova_pval<-names(ALL_B[anova_pval < 0.001])
+length(small_anova_pval)
+
+both_pvals<-intersect(small_kruskal_pval,small_anova_pval)
+length(both_pvals)
+
+only_kruskal<-length(small_kruskal_pval) - length(both_pvals)
+only_kruskal
+
+only_anova<-length(small_anova_pval) - length(both_pvals)
+only_anova
+tiny_k_pval<-kruskal_pvals < 0.001
+tiny_a_pval<-anova_pval < 0.001
+
+table(tiny_k_pval, tiny_a_pval)
+
+@
+
+Answer:
+
+2) e) There were 329 genes that had pvals below 0.001 for the Kruskal-Wallis test.  There were 415 genes that had pvals below 0.001 for the ANOVA test.  There were 291 genes that had pvals below 0.001 for both the Kruskal-Wallis test and the ANOVA test. There were 38 genes that had pvals below 0.001 for the Kruskal-Wallis test and not the ANOVA test.  There were 124 genes that had pvals below 0.001 for the ANOVA test and not the Kruskal-Wallis test
+
+
+
+3) Finding the ten best genes among gene expressions of B-cell ALL patients. Continue with the previous data.frame containing the expression
+values for the B-cell ALL patients in stage B, B1, B2, B3, and B4 from
+the ALL data. 
+a) Print the P values and the corresponding gene identifiers of the ten "best" from the ANOVA tests.
+<<include=TRUE>>=
+#I'm interpreting the "best" to mean the genes with the lowest
+# pvalues i.e. the most significant data suggesting rejection of
+# the null hypothesis 
+
+topten_anova<-names(ALL_B)[order(anova_pval, decreasing=T)[1:10]]
+topten_anova
+anova_pval[topten_anova]
+
+@
+
+Answer:
+
+The ten best genes with their respective pvalues as determined via ANOVA statistical test are listed below:
+   X1914_at     X1389_at    X38555_at    X33358_at    X40268_at 
+1.466523e-14 5.891702e-14 4.873245e-10 1.117406e-09 1.145502e-09 
+   X39716_at    X40763_at    X37809_at    X36873_at   X1866_g_at 
+4.748615e-09 5.256410e-09 2.155457e-08 2.402379e-08 3.997065e-08 
+
+b) c) Do the same for the pvalues from the Kruskal-Wallis test Use the intersect function to find identifiers in both sets
+
+<<include=TRUE>>=
+#I'm interpreting best to mean the gene with the highest expression
+
+topten_kruskal<-names(ALL_B)[order(kruskal_pvals)[1:10]]
+topten_kruskal
+kruskal_pvals[topten_kruskal]
+
+@
+
+Answer:
+
+The ten best genes with their respective pvalues as determined via Kruskal-Wallis statistical test are listed below:
+    X1389_at    X40268_at    X38555_at   X1866_g_at    X40155_at 
+2.348192e-09 7.764046e-08 1.123068e-07 2.335279e-07 6.595926e-07 
+    X1914_at   X1125_s_at  X40662_g_at    X38032_at    X40661_at 
+1.074525e-06 1.346907e-06 1.384281e-06 1.475170e-06 1.719456e-06 
+
+c) Use the intersect() function to find identifiers in both sets
+
+<<include=TRUE>>=
+
+krusk_nps=names(kruskal_pvals[topten_kruskal])
+krusk_nps
+
+anov_nps=names(anova_pval[topten_anova])
+anov_nps
+
+top_kruskal_top_anova<-intersect(krusk_nps, anov_nps)
+top_kruskal_top_anova
+
+@
+
+Answer:
+There were no genes in the top ten of both the Kruskal-Wallis and the ANOVA analyses.
+
+4) Simulation study on gene expression values
+
+4) a) Construct a data matrix with 10000 rows (genes) and 9 columns (patients) with data sampled from the normal distributions with mean zero and variance equal to 1.  Such a matrix simulates gene expressions without differences between groups (sometimes called negatives)
+
+<<include=TRUE>>=
+
+gene_exp_sim<-as.data.frame(matrix(rnorm(9000, 0, 1),nrow=10000, ncol=9))
+
+head(gene_exp_sim)
+
+@
+
+
+4) b) Construct a factor for three groups with three values
+<<include=TRUE>>=
+
+gene_sim_fac<-gl(3,3)
+
+@
+
+
+<<include=TRUE>>=
+
+gene_sim_pval<-apply(gene_exp_sim, 1, function(x) anova(lm(x ~ gene_sim_fac))$Pr[1])
+
+length(gene_sim_pval)
+head(gene_sim_pval)
+
+sig_gene_sim_pvals<-sum(gene_sim_pval <= 0.05)
+sig_gene_sim_pvals/10000
+
+@
+
+
+
+\end{document}

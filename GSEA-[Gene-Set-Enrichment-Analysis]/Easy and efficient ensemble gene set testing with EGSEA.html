@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+<meta name="date" content="2017-09-22" />
+
+<title>Easy and efficient ensemble gene set testing with EGSEA</title>
+
+<script src="EGSEAWorkflow_files/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="EGSEAWorkflow_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="EGSEAWorkflow_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="EGSEAWorkflow_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="EGSEAWorkflow_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="EGSEAWorkflow_files/navigation-1.1/tabsets.js"></script>
+<link href="EGSEAWorkflow_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="EGSEAWorkflow_files/highlightjs-9.12.0/highlight.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+<link rel="stylesheet" href="/home/biocbuild/bbs-3.9-bioc/R/library/BiocStyle/resources/html/bioconductor.css" type="text/css" />
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 828px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Easy and efficient ensemble gene set testing with EGSEA</h1>
+<p class="author-name">Monther Alhamdoosh<span class="affil-mark">1</span>, Charity W. Law<span class="affil-mark">2</span>, Luyi Tian<span class="affil-mark">2</span>, Julie M. Sheridan<span class="affil-mark">2</span>, Milica Ng<span class="affil-mark">1</span> and Matthew E. Ritchie<span class="affil-mark">3</span></p>
+<p class="author-affiliation"><span class="affil-mark">1</span>CSL Limited, Bio21 Institute, 30 Flemington Road, Parkville, Victoria 3010, Australia<br><span class="affil-mark">2</span>The Walter and Eliza Hall Institute of Medical Research, 1G Royal Parade, Parkville, Victoria 3052, Melbourne, Australia; Department of Medical Biology, The University of Melbourne, Parkville, Victoria 3010, Melbourne, Australia<br><span class="affil-mark">3</span>The Walter and Eliza Hall Institute of Medical Research, 1G Royal Parade, Parkville, Victoria 3052, Melbourne, Australia; Department of Medical Biology and School of Mathematics and Statistics, The University of Melbourne, Parkville, Victoria 3010, Melbourne, Australia</p>
+<h4 class="date">22 September 2017</h4>
+
+</div>
+
+<h1>Contents</h1>
+<div id="TOC">
+<ul>
+<li><a href="#abstract"><span class="toc-section-number">1</span> Abstract</a></li>
+<li><a href="#introduction"><span class="toc-section-number">2</span> Introduction</a></li>
+<li><a href="#gene-expression-profiling-of-the-mouse-mammary-gland"><span class="toc-section-number">3</span> Gene expression profiling of the mouse mammary gland</a><ul>
+<li><a href="#analysis-of-rna-seq-data-with-egsea"><span class="toc-section-number">3.1</span> Analysis of RNA-seq data with EGSEA</a><ul>
+<li><a href="#reading-preprocessing-and-normalisation-of-rna-seq-data"><span class="toc-section-number">3.1.1</span> Reading, preprocessing and normalisation of RNA-seq data</a></li>
+<li><a href="#gene-set-testing"><span class="toc-section-number">3.1.2</span> Gene set testing</a></li>
+</ul></li>
+<li><a href="#analysis-of-microarray-data-with-egsea"><span class="toc-section-number">3.2</span> Analysis of microarray data with EGSEA</a><ul>
+<li><a href="#reading-preprocessing-and-normalisation-of-microarray-data"><span class="toc-section-number">3.2.1</span> Reading, preprocessing and normalisation of microarray data</a></li>
+<li><a href="#setting-up-the-linear-model-for-egsea-testing"><span class="toc-section-number">3.2.2</span> Setting up the linear model for EGSEA testing</a></li>
+</ul></li>
+</ul></li>
+<li><a href="#discussion"><span class="toc-section-number">4</span> Discussion</a></li>
+<li><a href="#software-and-code-used"><span class="toc-section-number">5</span> Software and code used</a></li>
+<li><a href="#competing-interests"><span class="toc-section-number">6</span> Competing interests</a></li>
+<li><a href="#grant-information"><span class="toc-section-number">7</span> Grant information</a></li>
+<li><a href="#acknowledgements"><span class="toc-section-number">8</span> Acknowledgements</a></li>
+<li><a href="#references">References</a></li>
+</ul>
+</div>
+
+<p><strong>R version</strong>: R version 3.6.0 (2019-04-26)</p>
+<p><strong>Bioconductor version</strong>: 3.9</p>
+<p><strong>Package</strong>: 1.8.0</p>
+<div id="abstract" class="section level1">
+<h1><span class="header-section-number">1</span> Abstract</h1>
+<p>Gene set enrichment analysis is a popular approach for prioritising the biological processes perturbed in genomic datasets.
+The Bioconductor project hosts over 80 software packages capable of gene set analysis.
+Most of these packages search for enriched signatures amongst differentially regulated genes to reveal higher level biological themes that may be missed when focusing only on evidence from individual genes.
+With so many different methods on offer, choosing the best algorithm and visualization approach can be challenging.
+The <strong>EGSEA</strong> package solves this problem by combining results from up to 12 prominent gene set testing algorithms to obtain a consensus ranking of biologically relevant results.
+This workflow demonstrates how <strong>EGSEA</strong> can extend <strong>limma</strong>-based differential expression analyses for RNA-seq and microarray data using experiments that profile 3 distinct cell populations important for studying the origins of breast cancer.
+Following data normalization and set-up of an appropriate linear model for differential expression analysis, <strong>EGSEA</strong> builds gene signature specific indexes that link a wide range of mouse or human gene set collections obtained from MSigDB, GeneSetDB and KEGG to the gene expression data being investigated.
+<strong>EGSEA</strong> is then configured and the ensemble enrichment analysis run, returning an object that can be queried using several S4 methods for ranking gene sets and visualizing results via heatmaps, KEGG pathway views, GO graphs, scatter plots and bar plots.
+Finally, an HTML report that combines these displays can fast-track the sharing of results with collaborators, and thus expedite downstream biological validation.
+<strong>EGSEA</strong> is simple to use and can be easily integrated with existing gene expression analysis pipelines for both human and mouse data.</p>
+</div>
+<div id="introduction" class="section level1">
+<h1><span class="header-section-number">2</span> Introduction</h1>
+<p>Gene set enrichment analysis allows researchers to efficiently extract biological insights from long lists of differentially expressed genes by interrogating them at a systems level. In recent years, there has been a proliferation of gene set enrichment (GSE) analysis methods released through the Bioconductor project <span class="citation">(Huber et al. 2015)</span> together with a steady increase in the number of gene set collections available through online databases such as MSigDB <span class="citation">(Subramanian et al. 2005)</span>, GeneSetDB <span class="citation">(Araki et al. 2012)</span> and KEGG <span class="citation">(Kanehisa and Goto 2000)</span>.</p>
+<p>In an effort to unify these computational methods and knowledge-bases, the EGSEA R/Bioconductor package was developed.
+EGSEA, which stands for <em>Ensemble of Gene Set Enrichment Analyses</em> <span class="citation">(Alhamdoosh et al. 2017)</span> combines the results from multiple algorithms to arrive at a consensus gene set ranking to identify biological themes and pathways perturbed in an experiment. EGSEA calculates seven statistics to combine the individual gene set statistics of base GSE methods to rank biologically relevant gene sets. The current version of the <strong>EGSEA</strong> package <span class="citation">(Alhamdoosh, Ng, and Ritchie 2017)</span> utilizes the analysis results of up to twelve prominent GSE algorithms that include: <em>ora</em> <span class="citation">(Tavazoie et al. 1999)</span>, <em>globaltest</em> <span class="citation">(Goeman et al. 2004)</span>, <em>plage</em>
+<span class="citation">(Tomfohr, Lu, and Kepler 2005)</span>, <em>safe</em> <span class="citation">(Barry, Nobel, and Wright 2005)</span>, <em>zscore</em> <span class="citation">(Lee et al. 2008)</span>, <em>gage</em> <span class="citation">(Luo et al. 2009)</span>, <em>ssgsea</em> <span class="citation">(Barbie et al. 2009)</span>, <em>padog</em> <span class="citation">(Tarca et al. 2012)</span>, <em>gsva</em> <span class="citation">(Hänzelmann, Castelo, and Guinney 2013)</span>, <em>camera</em> <span class="citation">(Wu and Smyth 2012)</span>, <em>roast</em> <span class="citation">(Wu et al. 2010)</span> and <em>fry</em> <span class="citation">(Wu et al. 2010)</span>.
+The <em>ora</em>, <em>gage</em>, <em>camera</em> and <em>gsva</em> methods depend on a <em>competitive</em> null hypothesis which assumes the genes in a set do not have a stronger association with the experimental condition compared to randomly chosen genes outside the set.
+The remaining eight methods are based on a <em>self-contained</em> null hypothesis that only considers genes within a set and again assumes that they have no association with the experimental condition.</p>
+<p>EGSEA provides access to a diverse range of gene signature collections through the <strong>EGSEAdata</strong> package that includes more than 25,000 gene sets for human and mouse organised according to their database sources (Table 1). For example, MSigDB <span class="citation">(Subramanian et al. 2005)</span> includes a number of collections (Hallmark (h) and c1-c7) that explore different biological themes ranging from very broad (h, c2, c5) through to more specialised ones focusing on cancer (c4, c6) and immunology (c7). The other main sources are GeneSetDB <span class="citation">(Araki et al. 2012)</span> and KEGG <span class="citation">(Kanehisa and Goto 2000)</span> which have similar collections focusing on different biological characteristics (Table 1). The choice of collection/s in any given analysis should of course be guided by the biological question of interest. The MSigDB c2 and c5 collections are the most widely used in our own analysis practice, spanning a wide range of biological processes and can often reveal new biological insights when applied to a given dataset.</p>
+<p>|————–|———————–|——————————————————–|
+| Database | Collection | Description |
+|————–|———————–|——————————————————–|
+| MSigDB | h Hallmarks | Gene sets representing well-defined biological states. |
+| | c1 Positional | Gene sets by chromosome and cytogenetic band. |
+| | c2 Curated | Gene sets obtained from a variety of sources, |
+| | | including online pathway databases |
+| | | and the biomedical literature. |
+| | c3 Motif | Gene sets of potential targets regulated by |
+| | | transcription factors or microRNAs. |
+| | c4 Computational | Gene sets defined computationally by mining |
+| | | large collections of cancer-oriented microarray data. |
+| | c5 GO | Gene sets annotated by Gene Ontology (GO) terms. |
+| | c6 Oncogenic | Gene sets of the major cellular pathways |
+| | | disrupted in cancer. |
+| | c7 Immunologic | Gene sets representing different cell types |
+| | | and stimulations relevant to the immune system. |
+|————–|———————–|——————————————————–|
+| KEGG | Signalling | |
+| | Disease | Gene sets obtained from the KEGG database. |
+| | Metabolic | |
+|————–|———————–|——————————————————–|
+| GeneSetDB | Pathway | |
+| | Disease | |
+| | Drug | Gene sets obtained from various online databases. |
+| | Regulation | |
+| | GO Term | |
+|————–|———————–|——————————————————–|</p>
+<p>The purpose of this article is to demonstrate the gene set testing workflow available in <strong>EGSEA</strong> on both RNA-seq and microarray data.
+Each analysis involves four major steps that are summarized in Figure 1: (1) selecting appropriate gene set collections for analysis and building an index that maps between the members of each set and the expression matrix; (2) choosing the base GSE methods to combine and the ranking options; (3) running the EGSEA test and (4) reporting results in various ways to share with collaborators. The EGSEA functions involved in each of these steps are introduced with code examples to demonstrate to how they can be deployed as part of a <strong>limma</strong> differential expression analysis to help with the interpretation of results.</p>
+<div class="figure">
+<img src="EGSEAWorkFlow.png" alt="The main steps in an EGSEA analysis and the functions that perform each task." />
+<p class="caption">The main steps in an <strong>EGSEA</strong> analysis and the functions that perform each task.</p>
+</div>
+</div>
+<div id="gene-expression-profiling-of-the-mouse-mammary-gland" class="section level1">
+<h1><span class="header-section-number">3</span> Gene expression profiling of the mouse mammary gland</h1>
+<p>The first experiment analysed in this workflow is an RNA-seq dataset from Sheridan <em>et al.</em> (2015) <span class="citation">(Sheridan et al. 2015)</span> that consists of 3 cell populations (Basal, Luminal Progenitor (LP) and Mature Luminal (ML)) sorted from the mammary glands of female virgin mice. Triplicate RNA samples from each population were obtained in 3 batches and sequenced on an Illumina HiSeq 2000 using a 100 base-pair single-ended protocol.
+Raw sequence reads from the fastq files were aligned to the mouse reference genome (mm10) using the <strong>Rsubread</strong> package <span class="citation">(Liao, Smyth, and Shi 2013)</span>. Next, gene-level counts were obtained using <code>featureCounts</code> <span class="citation">(Liao, Smyth, and Shi 2014)</span> based on <strong>Rsubread</strong>’s built-in <em>mm10</em> RefSeq-based annotation.<br />
+The raw data along with further information on experimental design and sample preparation can be downloaded from the Gene Expression Omnibus (GEO, <a href="http://www.ncbi.nlm.nih.gov/geo/" class="uri">http://www.ncbi.nlm.nih.gov/geo/</a>) using GEO Series accession number GSE63310 and will be preprocessed according to the RNA-seq workflow published by Law <em>et al.</em> (2016) <span class="citation">(Law et al. 2016)</span>.</p>
+<p>The second experiment analysed in this workflow comes from Lim <em>et al.</em> (2010) <span class="citation">(Lim et al. 2010)</span> and is the microarray equivalent of the RNA-seq dataset mentioned above.
+The same 3 populations (Basal (also referred to as <em>MaSC-enriched</em>), LP and ML) were sorted from mouse mammary glands via flow cytometry.
+Total RNA from 5 replicates of each cell population were hybridised onto 3 Illumina MouseWG-6 v2 BeadChips.
+The intensity files and chip annotation file available in Illumina’s proprietary formats (IDAT and BGX respectively) can be downloaded from <a href="http://bioinf.wehi.edu.au/EGSEA/arraydata.zip" class="uri">http://bioinf.wehi.edu.au/EGSEA/arraydata.zip</a>. The raw data from this experiment is also available from GEO under Series accession number GSE19446.</p>
+<div id="analysis-of-rna-seq-data-with-egsea" class="section level2">
+<h2><span class="header-section-number">3.1</span> Analysis of RNA-seq data with EGSEA</h2>
+<p>Our RNA-seq analysis follows on directly from the workflow of Law <em>et al.</em> (2016) which performs a differential gene expression analysis on this dataset using the Bioconductor packages <strong>edgeR</strong> <span class="citation">(Robinson, McCarthy, and Smyth 2010)</span>, <strong>limma</strong> <span class="citation">(Ritchie et al. 2015)</span> and <strong>Glimma</strong> <span class="citation">(Su et al. 2017)</span> with gene annotation from <strong>Mus.musculus</strong> <span class="citation">(Bioconductor Core Team 2015)</span>. The <strong>limma</strong> package offers a well-developed suite of statistical methods for dealing with differential expression for both microarray and RNA-seq datasets and will be used in the analyses of both datasets presented in this workflow.</p>
+<div id="reading-preprocessing-and-normalisation-of-rna-seq-data" class="section level3">
+<h3><span class="header-section-number">3.1.1</span> Reading, preprocessing and normalisation of RNA-seq data</h3>
+<p>To get started with this analysis, download the R data file from <a href="http://bioinf.wehi.edu.au/EGSEA/mam.rnaseq.rdata" class="uri">http://bioinf.wehi.edu.au/EGSEA/mam.rnaseq.rdata</a>.
+The code below loads the preprocessed count matrix from Law <em>et al.</em> (2016), performs TMM normalisation <span class="citation">(Robinson and Oshlack 2010)</span> on the raw counts, and calculates voom weights for use in comparisons of gene expression between Basal and LP, Basal and ML, and LP and ML populations.</p>
+<pre><code>## [1] &quot;samples&quot; &quot;counts&quot;  &quot;genes&quot;</code></pre>
+<pre><code>## [1] 14165     9</code></pre>
+<pre><code>##   Basal LP ML L006 L008
+## 1     0  1  0    0    0
+## 2     0  0  1    0    0
+## 3     1  0  0    0    0
+## 4     1  0  0    1    0
+## 5     0  0  1    1    0
+## 6     0  1  0    1    0</code></pre>
+<pre><code>##        Contrasts
+## Levels  BasalvsLP BasalvsML LPvsML
+##   Basal         1         1      0
+##   LP           -1         0      1
+##   ML            0        -1     -1
+##   L006          0         0      0
+##   L008          0         0      0</code></pre>
+<p>The <code>voom</code> function <span class="citation">(Law et al. 2014)</span> from the <strong>limma</strong> package converts counts to log-counts-per-million (log-cpm) and calculates observation-level precision weights. The <em>voom</em> object (<code>v</code>) contains normalized log-cpm values and gene information used by all of the methods in the EGSEA analysis below. The precision <code>weights</code> stored within <code>v</code> are also used by the <em>camera</em>, <em>roast</em> and <em>fry</em> gene set testing methods.</p>
+<pre class="r"><code>v = voom(x, design, plot=FALSE)
+names(v)</code></pre>
+<pre><code>## [1] &quot;genes&quot;   &quot;targets&quot; &quot;E&quot;       &quot;weights&quot; &quot;design&quot;</code></pre>
+<p>For further information on preprocessing, see Law <em>et al.</em> (2016) as a detailed explanation of these steps is beyond the scope of this article.</p>
+</div>
+<div id="gene-set-testing" class="section level3">
+<h3><span class="header-section-number">3.1.2</span> Gene set testing</h3>
+<p>The EGSEA algorithm makes use of the <em>voom</em> object (<code>v</code>), a design matrix (<code>design</code>) and an optional contrasts matrix (<code>contr.matrix</code>). The design matrix describes how the samples in the experiment relate to the coefficients estimated by the linear model <span class="citation">(Smyth 2004)</span>. The contrasts matrix then compares two or more of these coefficients to allow relative assessment of differential expression. Base methods that utilize linear models such as those from <strong>limma</strong> and <strong>GSVA</strong> (<em>gsva</em>, <em>plage</em>, <em>zscore</em> and <em>ssgsea</em>) make use of the design and contrasts matrices directly. For methods that do not support linear models, these two matrices are used to extract the group information for each comparison.</p>
+<div id="exploring-selecting-and-indexing-gene-set-collections" class="section level4">
+<h4><span class="header-section-number">3.1.2.1</span> 1. Exploring, selecting and indexing gene set collections</h4>
+<p>The package <strong>EGSEAdata</strong> includes more than 25,000 gene sets organized in collections depending on their database sources.
+Summary information about the gene set collections available in <strong>EGSEAdata</strong> can be displayed as follows:</p>
+<pre class="r"><code>library(EGSEAdata)
+egsea.data(&quot;mouse&quot;)</code></pre>
+<pre><code>## The following databases are available in EGSEAdata for Mus musculus:
+## 
+## Database name: KEGG Pathways
+## Version: NA
+## Download/update date: 07 March 2017
+## Data source: gage::kegg.gsets()
+## Supported species: human, mouse, rat
+## Gene set collections: Signaling, Metabolism, Disease
+## Related data objects: kegg.pathways
+## Number of gene sets in each collection for  Mus musculus : 
+##  Signaling: 132
+##  Metabolism: 89
+##  Disease: 67
+## 
+## Database name: Molecular Signatures Database (MSigDB)
+## Version: 5.2
+## Download/update date: 07 March 2017
+## Data source: http://software.broadinstitute.org/gsea
+## Supported species: human, mouse
+## Gene set collections: h, c1, c2, c3, c4, c5, c6, c7
+## Related data objects: msigdb, Mm.H, Mm.c2, Mm.c3, Mm.c4, Mm.c5, Mm.c6, Mm.c7
+## Number of gene sets in each collection for  Mus musculus : 
+##  h Hallmark Signatures: 50
+##  c2 Curated Gene Sets: 4729
+##  c3 Motif Gene Sets: 836
+##  c4 Computational Gene Sets: 858
+##  c5 GO Gene Sets: 6166
+##  c6 Oncogenic Signatures: 189
+##  c7 Immunologic Signatures: 4872
+## 
+## Database name: GeneSetDB Database
+## Version: NA
+## Download/update date: 15 January 2016
+## Data source: http://www.genesetdb.auckland.ac.nz/
+## Supported species: human, mouse, rat
+## Gene set collections: gsdbdis, gsdbgo, gsdbdrug, gsdbpath, gsdbreg
+## Related data objects: gsetdb.human, gsetdb.mouse, gsetdb.rat
+## Number of gene sets in each collection for  Mus musculus : 
+##  GeneSetDB Drug/Chemical: 6019
+##  GeneSetDB Disease/Phenotype: 5077
+##  GeneSetDB Gene Ontology: 2202
+##  GeneSetDB Pathway: 1444
+##  GeneSetDB Gene Regulation: 201
+## 
+## Type ?&lt;data object name&gt; to get a specific information 
+##              about it, e.g., ?kegg.pathways.</code></pre>
+<p>As the output above suggests, users can obtain help on any of the collections using the standard R help (<code>?</code>) command, for instance <code>?Mm.c2</code> will return more information on the mouse version of the c2 collection from MSigDB. The above information can be returned as a list:</p>
+<pre class="r"><code>info = egsea.data(&quot;mouse&quot;, returnInfo = TRUE)
+names(info)</code></pre>
+<pre><code>## [1] &quot;kegg&quot;   &quot;msigdb&quot; &quot;gsetdb&quot;</code></pre>
+<pre class="r"><code>info$msigdb$info$collections</code></pre>
+<pre><code>## [1] &quot;h&quot;  &quot;c1&quot; &quot;c2&quot; &quot;c3&quot; &quot;c4&quot; &quot;c5&quot; &quot;c6&quot; &quot;c7&quot;</code></pre>
+<p>To highlight the capabilities of the <strong>EGSEA</strong> package, the KEGG pathways, c2 (curated gene sets) and c5 (Gene Ontology gene sets) collections from the MSigDB database are selected.</p>
+<p>Next, an index is built for each gene set collection using the EGSEA indexing functions to link the genes in the different gene set collections to the rows of our RNA-seq gene expression matrix.
+Indexes for the c2 and c5 collections from MSigDB and for the KEGG pathways are built using the <code>buildIdx</code> function which relies on Entrez gene IDs as its key.
+In the <strong>EGSEAdata</strong> gene set collections, Entrez IDs are used as they are widely adopted by the different source databases and tend to be more consistent and robust since there is one identifier per gene in a gene set. It is also relatively easy to convert other gene IDs into Entrez IDs.</p>
+<pre class="r"><code>library(EGSEA)</code></pre>
+<pre class="r"><code>gs.annots = buildIdx(entrezIDs=v$genes$ENTREZID, species=&quot;mouse&quot;, 
+           msigdb.gsets=c(&quot;c2&quot;, &quot;c5&quot;), go.part = TRUE)</code></pre>
+<pre><code>## [1] &quot;Loading MSigDB Gene Sets ... &quot;
+## [1] &quot;Loaded gene sets for the collection c2 ...&quot;
+## [1] &quot;Indexed the collection c2 ...&quot;
+## [1] &quot;Created annotation for the collection c2 ...&quot;
+## [1] &quot;Loaded gene sets for the collection c5 ...&quot;
+## [1] &quot;Indexed the collection c5 ...&quot;
+## [1] &quot;Created annotation for the collection c5 ...&quot;
+## MSigDB c5 gene set collection has been partitioned into 
+## c5BP, c5CC, c5MF
+## [1] &quot;Building KEGG pathways annotation object ... &quot;</code></pre>
+<pre class="r"><code>names(gs.annots)</code></pre>
+<pre><code>## [1] &quot;c2&quot;   &quot;c5BP&quot; &quot;c5CC&quot; &quot;c5MF&quot; &quot;kegg&quot;</code></pre>
+<p>To obtain additional information on the gene set collection indexes, including the total number of gene sets, the version number and date of last revision, the methods <em>summary</em>, <em>show</em> and <em>getSetByName</em> (or <em>getSetByID</em>) can be invoked on an object of class <strong>GSCollectionIndex</strong>, which stores all of the relevant gene set information, as follows:</p>
+<pre class="r"><code>class(gs.annots$c2)</code></pre>
+<pre><code>## [1] &quot;GSCollectionIndex&quot;
+## attr(,&quot;package&quot;)
+## [1] &quot;EGSEA&quot;</code></pre>
+<pre class="r"><code>summary(gs.annots$c2)</code></pre>
+<pre><code>## c2 Curated Gene Sets (c2): 4726 gene sets - Version: 5.2, Update date: 07 March 2017</code></pre>
+<pre class="r"><code>show(gs.annots$c2)</code></pre>
+<pre><code>## An object of class &quot;GSCollectionIndex&quot;
+##  Number of gene sets: 4726
+##  Annotation columns: ID, GeneSet, BroadUrl, Description, PubMedID, NumGenes, Contributor
+##  Total number of indexing genes: 14165
+##  Species: Mus musculus
+##  Collection name: c2 Curated Gene Sets
+##  Collection uniqe label: c2
+##  Database version: 5.2
+##  Database update date: 07 March 2017</code></pre>
+<pre class="r"><code>s = getSetByName(gs.annots$c2, &quot;SMID_BREAST_CANCER_LUMINAL_A_DN&quot;)</code></pre>
+<pre><code>## ID: M13072
+## GeneSet: SMID_BREAST_CANCER_LUMINAL_A_DN
+## BroadUrl: http://www.broadinstitute.org/gsea/msigdb/cards/SMID_BREAST_CANCER_LUMINAL_A_DN.html
+## Description: Genes down-regulated in the luminal A subtype of breast cancer.
+## PubMedID: 18451135
+## NumGenes: 23/24
+## Contributor: Jessica Robertson</code></pre>
+<pre class="r"><code>class(s)</code></pre>
+<pre><code>## [1] &quot;list&quot;</code></pre>
+<pre class="r"><code>names(s)</code></pre>
+<pre><code>## [1] &quot;SMID_BREAST_CANCER_LUMINAL_A_DN&quot;</code></pre>
+<pre class="r"><code>names(s$SMID_BREAST_CANCER_LUMINAL_A_DN)</code></pre>
+<pre><code>## [1] &quot;ID&quot;          &quot;GeneSet&quot;     &quot;BroadUrl&quot;    &quot;Description&quot; &quot;PubMedID&quot;   
+## [6] &quot;NumGenes&quot;    &quot;Contributor&quot; &quot;idx&quot;         &quot;original&quot;</code></pre>
+<p>Objects of class <em>GSCollectionIndex</em> store for each gene set the Entrez gene IDs in the slot <code>original</code>, the indexes in the slot <code>idx</code> and additional annotation for each set in the slot <code>anno</code>.</p>
+<pre class="r"><code>slotNames(gs.annots$c2)</code></pre>
+<pre><code>## [1] &quot;original&quot;   &quot;idx&quot;        &quot;anno&quot;       &quot;featureIDs&quot; &quot;species&quot;   
+## [6] &quot;name&quot;       &quot;label&quot;      &quot;version&quot;    &quot;date&quot;</code></pre>
+<p>Other EGSEA functions such as <code>buildCustomIdx</code>, <code>buildGMTIdx</code>, <code>buildKEGGIdx</code>, <code>buildMSigDBIdx</code> and <code>buildGeneSetDBIdx</code> can be also used to build gene set collection indexes. The functions <code>buildCustomIdx</code> and <code>buildGMTIdx</code> were written to allow users to run EGSEA on gene set collections that may have been curated within a lab or downloaded from public databases and allow use of gene identifiers other than Entrez IDs. Example databases include, ENCODE Gene Set Hub (available from <a href="https://sourceforge.net/projects/encodegenesethub/" class="uri">https://sourceforge.net/projects/encodegenesethub/</a>), which is a growing resource of gene sets derived from high quality ENCODE profiling experiments encompassing hundreds of DNase hypersensitivity, histone modification and transcription factor binding experiments <span class="citation">(Ziemann et al. 2017)</span>. Other resources include PathwayCommons (<a href="http://www.pathwaycommons.org/" class="uri">http://www.pathwaycommons.org/</a>) <span class="citation">(Cerami et al. 2011)</span> or the <strong>KEGGREST</strong> <span class="citation">(Tenenbaum 2017)</span> package that provides access to up-to-date KEGG pathways across many species.</p>
+</div>
+<div id="configuring-egsea" class="section level4">
+<h4><span class="header-section-number">3.1.2.2</span> 2. Configuring EGSEA</h4>
+<p>Before an EGSEA test is carried out, a few parameters need to be specified. First, a mapping between Entrez IDs and Gene Symbols is created for use by the visualization procedures. This mapping can be extracted from the <code>genes</code> data.frame of the <em>voom</em> object as follows:</p>
+<pre class="r"><code>colnames(v$genes)</code></pre>
+<pre><code>## [1] &quot;ENTREZID&quot; &quot;SYMBOL&quot;   &quot;CHR&quot;</code></pre>
+<pre class="r"><code>symbolsMap = v$genes[, c(1, 2)]
+colnames(symbolsMap) = c(&quot;FeatureID&quot;, &quot;Symbols&quot;)
+symbolsMap[, &quot;Symbols&quot;] = as.character(symbolsMap[, &quot;Symbols&quot;])</code></pre>
+<p>Another important parameter in EGSEA is the list of base GSE methods (<code>baseMethods</code> in the code below), which determines the individual algorithms that are used in the ensemble testing. The supported base methods can be listed using the function <code>egsea.base</code> as follows:</p>
+<pre class="r"><code>egsea.base()</code></pre>
+<pre><code>##  [1] &quot;camera&quot;     &quot;roast&quot;      &quot;safe&quot;       &quot;gage&quot;       &quot;padog&quot;     
+##  [6] &quot;plage&quot;      &quot;zscore&quot;     &quot;gsva&quot;       &quot;ssgsea&quot;     &quot;globaltest&quot;
+## [11] &quot;ora&quot;        &quot;fry&quot;</code></pre>
+<p>The <em>plage</em>, <em>zscore</em> and <em>ssgsea</em> algorithms are available in the <strong>GSVA</strong> package and <em>camera</em>, <em>fry</em> and <em>roast</em> are implemented in the <strong>limma</strong> package <span class="citation">(Ritchie et al. 2015)</span>.
+The <strong>ora</strong> method is implemented using the <code>phyper</code> function from the <strong>stats</strong> package <span class="citation">(R Core Team 2017)</span>, which estimates the hypergeometric distribution for a <span class="math inline">\(2 \times 2\)</span> contingency table. The remaining algorithms are implemented in Bioconductor packages of the same name. A wrapper function is provided for each individual GSE method to utilize this existing R code and create a universal interface for all methods.</p>
+<p>Eleven base methods are selected for our EGSEA analysis: <em>camera</em>, <em>safe</em>, <em>gage</em>, <em>padog</em>, <em>plage</em>, <em>zscore</em>, <em>gsva</em>, <em>ssgsea</em>, <em>globaltest</em>, <em>ora</em> and <em>fry</em>. <em>Fry</em> is a fast approximation of <em>roast</em> that assumes equal gene-wise variances across samples to produce similar <span class="math inline">\(p\)</span>-values to a <em>roast</em> analysis run with an infinite number of rotations, and is selected here to save time.</p>
+<pre class="r"><code>baseMethods = egsea.base()[-2]
+baseMethods</code></pre>
+<pre><code>##  [1] &quot;camera&quot;     &quot;safe&quot;       &quot;gage&quot;       &quot;padog&quot;      &quot;plage&quot;     
+##  [6] &quot;zscore&quot;     &quot;gsva&quot;       &quot;ssgsea&quot;     &quot;globaltest&quot; &quot;ora&quot;       
+## [11] &quot;fry&quot;</code></pre>
+<p>Although, different combinations of base methods might produce different results, it has been found via simulation that including more methods gives better performance <span class="citation">(Alhamdoosh et al. 2017)</span>.</p>
+<p>Since each base method generates different <span class="math inline">\(p\)</span>-values, EGSEA supports six different methods from the <strong>metap</strong> package <span class="citation">(Dewey 2017)</span> for combining individual <span class="math inline">\(p\)</span>-values (<em>Wilkinson</em> <span class="citation">(Wilkinson 1954)</span> is default), which can be listed as follows:</p>
+<pre class="r"><code>egsea.combine()</code></pre>
+<pre><code>## [1] &quot;fisher&quot;    &quot;wilkinson&quot; &quot;average&quot;   &quot;logitp&quot;    &quot;sump&quot;      &quot;sumz&quot;     
+## [7] &quot;votep&quot;     &quot;median&quot;</code></pre>
+<p>Finally, the sorting of EGSEA results plays an essential role in identifying relevant gene sets. Any of EGSEA’s combined scores or the rankings from individual base methods can be used for sorting the results.</p>
+<pre class="r"><code>egsea.sort()</code></pre>
+<pre><code>##  [1] &quot;p.value&quot;       &quot;p.adj&quot;         &quot;vote.rank&quot;     &quot;avg.rank&quot;     
+##  [5] &quot;med.rank&quot;      &quot;min.pvalue&quot;    &quot;min.rank&quot;      &quot;avg.logfc&quot;    
+##  [9] &quot;avg.logfc.dir&quot; &quot;direction&quot;     &quot;significance&quot;  &quot;camera&quot;       
+## [13] &quot;roast&quot;         &quot;safe&quot;          &quot;gage&quot;          &quot;padog&quot;        
+## [17] &quot;plage&quot;         &quot;zscore&quot;        &quot;gsva&quot;          &quot;ssgsea&quot;       
+## [21] &quot;globaltest&quot;    &quot;ora&quot;           &quot;fry&quot;</code></pre>
+<p>Although <code>p.adj</code> is the default option for sorting EGSEA results for convenience, we recommend the use of either <code>med.rank</code> or <code>vote.rank</code> because they efficiently utilize the rankings of individual methods and tend to produce fewer false positives <span class="citation">(Alhamdoosh et al. 2017)</span>.</p>
+</div>
+<div id="ensemble-testing-with-egsea" class="section level4">
+<h4><span class="header-section-number">3.1.2.3</span> 3. Ensemble testing with EGSEA</h4>
+<p>Next, the EGSEA analysis is performed using the <code>egsea</code> function that takes a <em>voom</em> object, a contrasts matrix, collections of gene sets and other run parameters as follows:</p>
+<pre class="r"><code>gsa = egsea(voom.results=v, contrasts=contr.matrix,  
+         gs.annots=gs.annots, symbolsMap=symbolsMap,
+         baseGSEAs=baseMethods, sort.by=&quot;med.rank&quot;,
+         num.threads = 16, report = FALSE)</code></pre>
+<pre><code>## EGSEA analysis has started</code></pre>
+<pre><code>## ##------ Fri May  3 12:00:02 2019 ------##</code></pre>
+<pre><code>## Log fold changes are estimated using limma package ...</code></pre>
+<pre><code>## limma DE analysis is carried out ...</code></pre>
+<pre><code>## Number of used cores has changed to 7
+## in order to avoid CPU overloading.</code></pre>
+<pre><code>## EGSEA is running on the provided data and c2 collection</code></pre>
+<pre><code>## </code></pre>
+<pre><code>## EGSEA is running on the provided data and c5BP collection</code></pre>
+<pre><code>## </code></pre>
+<pre><code>## EGSEA is running on the provided data and c5CC collection</code></pre>
+<pre><code>## </code></pre>
+<pre><code>## EGSEA is running on the provided data and c5MF collection</code></pre>
+<pre><code>## </code></pre>
+<pre><code>## EGSEA is running on the provided data and kegg collection</code></pre>
+<pre><code>## </code></pre>
+<pre><code>## ##------ Fri May  3 12:02:45 2019 ------##</code></pre>
+<pre><code>## EGSEA analysis took 162.926 seconds.</code></pre>
+<pre><code>## EGSEA analysis has completed</code></pre>
+<p>In situations where the design matrix includes an intercept, a vector of integers that specify the columns of the design matrix to test using EGSEA can be passed to the <code>contrasts</code> argument. If this parameter is <code>NULL</code>, all pairwise comparisons based on <code>v$targets$group</code> are created, assuming that <code>group</code> is the primary factor in the design matrix. Likewise, all the coefficients of the primary factor are used if the design matrix has an intercept.</p>
+<p><strong>EGSEA</strong> is implemented with parallel computing features enabled using the <strong>parallel</strong> package <span class="citation">(R Core Team 2017)</span> at both the method-level and experimental contrast-level. The running time of the EGSEA test depends on the base methods selected and whether report generation is enabled or not. The latter significantly increases the run time, particularly if the argument <code>display.top</code> is assigned a large value (<span class="math inline">\(&gt;\)</span> 20) and/or a large number of gene set collections are selected. EGSEA reporting functionality generates set-level plots for the top gene sets as well as collection-level plots.</p>
+<p>The <strong>EGSEA</strong> package also has a function named <code>egsea.cnt</code>, that can perform the EGSEA test using an RNA-seq count matrix rather than a <em>voom</em> object, a function named <code>egsea.ora</code>, that can perform over-representation analysis with EGSEA reporting capabilities using only a vector of gene IDs, and the <code>egsea.ma</code> function that can perform EGSEA testing using a microarray expression matrix as shown later in the workflow.</p>
+<div id="classes-used-to-manage-the-results" class="section level5">
+<h5><span class="header-section-number">3.1.2.3.1</span> Classes used to manage the results</h5>
+<p>The output of the functions <code>egsea</code>, <code>egsea.cnt</code>, <code>egsea.ora</code> and <code>egsea.ma</code> is an S4 object of class <strong>EGSEAResults</strong>.
+Several S4 methods can be invoked to query this object. For example, an overview of the EGSEA analysis can be displayed using the <em>show</em> method as follows:</p>
+<pre class="r"><code>show(gsa)</code></pre>
+<pre><code>## An object of class &quot;EGSEAResults&quot;
+##  Total number of genes: 14165
+##  Total number of samples: 9
+##  Contrasts: BasalvsLP, BasalvsML, LPvsML
+##  Base GSE methods: camera (limma:3.40.0), safe (safe:3.24.0), gage (gage:2.34.0), padog (PADOG:1.26.0), plage (GSVA:1.32.0), zscore (GSVA:1.32.0), gsva (GSVA:1.32.0), ssgsea (GSVA:1.32.0), globaltest (globaltest:5.38.0), ora (stats:3.6.0), fry (limma:3.40.0)
+##  P-values combining method: wilkinson
+##  Sorting statistic: med.rank
+##  Organism: Mus musculus
+##  HTML report generated: No
+##  Tested gene set collections: 
+##      c2 Curated Gene Sets (c2): 4726 gene sets - Version: 5.2, Update date: 07 March 2017
+##      c5 GO Gene Sets (BP) (c5BP): 4653 gene sets - Version: 5.2, Update date: 07 March 2017
+##      c5 GO Gene Sets (CC) (c5CC): 584 gene sets - Version: 5.2, Update date: 07 March 2017
+##      c5 GO Gene Sets (MF) (c5MF): 928 gene sets - Version: 5.2, Update date: 07 March 2017
+##      KEGG Pathways (kegg): 287 gene sets - Version: NA, Update date: 07 March 2017
+##  EGSEA version: 1.12.0
+##  EGSEAdata version: 1.11.0
+## Use summary(object) and topSets(object, ...) to explore this object.</code></pre>
+<p>This command displays the number of genes and samples that were included in the analysis, the experimental contrasts, base GSE methods, the method used to combine the <span class="math inline">\(p\)</span>-values derived from different GSE algorithms, the sorting statistic used and the size of each gene set collection. Note that the gene set collections are identified using the labels that appear in parentheses (e.g. <code>c2</code>) in the output of <em>show</em>.</p>
+</div>
+</div>
+<div id="reporting-egsea-results" class="section level4">
+<h4><span class="header-section-number">3.1.2.4</span> 4. Reporting EGSEA results</h4>
+<div id="getting-top-ranked-gene-sets" class="section level5">
+<h5><span class="header-section-number">3.1.2.4.1</span> Getting top ranked gene sets</h5>
+<p>A summary of the top 10 gene sets in each collection for each contrast in addition to the EGSEA comparative analysis can be displayed using the S4 method <em>summary</em> as follows:</p>
+<pre class="r"><code>summary(gsa)</code></pre>
+<pre><code>## **** Top 10 gene sets in the c2 Curated Gene Sets collection **** 
+## ** Contrast BasalvsLP **
+## LIM_MAMMARY_STEM_CELL_DN | LIM_MAMMARY_LUMINAL_PROGENITOR_UP
+## MONTERO_THYROID_CANCER_POOR_SURVIVAL_UP | SMID_BREAST_CANCER_LUMINAL_A_DN
+## NAKAYAMA_SOFT_TISSUE_TUMORS_PCA2_UP | REACTOME_LATENT_INFECTION_OF_HOMO_SAPIENS_WITH_MYCOBACTERIUM_TUBERCULOSIS
+## REACTOME_TRANSFERRIN_ENDOCYTOSIS_AND_RECYCLING | FARMER_BREAST_CANCER_CLUSTER_2
+## KEGG_EPITHELIAL_CELL_SIGNALING_IN_HELICOBACTER_PYLORI_INFECTION | LANDIS_BREAST_CANCER_PROGRESSION_UP
+## 
+## ** Contrast BasalvsML **
+## LIM_MAMMARY_STEM_CELL_DN | LIM_MAMMARY_STEM_CELL_UP
+## LIM_MAMMARY_LUMINAL_MATURE_DN | PAPASPYRIDONOS_UNSTABLE_ATEROSCLEROTIC_PLAQUE_DN
+## NAKAYAMA_SOFT_TISSUE_TUMORS_PCA2_UP | LIM_MAMMARY_LUMINAL_MATURE_UP
+## CHARAFE_BREAST_CANCER_LUMINAL_VS_MESENCHYMAL_UP | RICKMAN_HEAD_AND_NECK_CANCER_A
+## YAGUE_PRETUMOR_DRUG_RESISTANCE_DN | BERTUCCI_MEDULLARY_VS_DUCTAL_BREAST_CANCER_DN
+## 
+## ** Contrast LPvsML **
+## LIM_MAMMARY_LUMINAL_MATURE_UP | LIM_MAMMARY_LUMINAL_MATURE_DN
+## PHONG_TNF_RESPONSE_VIA_P38_PARTIAL | WOTTON_RUNX_TARGETS_UP
+## WANG_MLL_TARGETS | PHONG_TNF_TARGETS_DN
+## REACTOME_PEPTIDE_LIGAND_BINDING_RECEPTORS | CHIANG_LIVER_CANCER_SUBCLASS_CTNNB1_DN
+## GERHOLD_RESPONSE_TO_TZD_DN | DURAND_STROMA_S_UP
+## 
+## ** Comparison analysis ** 
+## LIM_MAMMARY_LUMINAL_MATURE_DN | LIM_MAMMARY_STEM_CELL_DN
+## NAKAYAMA_SOFT_TISSUE_TUMORS_PCA2_UP | LIM_MAMMARY_LUMINAL_MATURE_UP
+## COLDREN_GEFITINIB_RESISTANCE_DN | LIM_MAMMARY_STEM_CELL_UP
+## CHARAFE_BREAST_CANCER_LUMINAL_VS_MESENCHYMAL_UP | LIM_MAMMARY_LUMINAL_PROGENITOR_UP
+## BERTUCCI_MEDULLARY_VS_DUCTAL_BREAST_CANCER_DN | MIKKELSEN_IPS_WITH_HCP_H3K27ME3
+## 
+## **** Top 10 gene sets in the c5 GO Gene Sets (BP) collection **** 
+## ** Contrast BasalvsLP **
+## GO_SYNAPSE_ORGANIZATION | GO_IRON_ION_TRANSPORT
+## GO_CALCIUM_INDEPENDENT_CELL_CELL_ADHESION_VIA_PLASMA_MEMBRANE_CELL_ADHESION_MOLECULES | GO_PH_REDUCTION
+## GO_HOMOPHILIC_CELL_ADHESION_VIA_PLASMA_MEMBRANE_ADHESION_MOLECULES | GO_VACUOLAR_ACIDIFICATION
+## GO_FERRIC_IRON_TRANSPORT | GO_TRIVALENT_INORGANIC_CATION_TRANSPORT
+## GO_NEURON_PROJECTION_GUIDANCE | GO_MESONEPHROS_DEVELOPMENT
+## 
+## ** Contrast BasalvsML **
+## GO_FERRIC_IRON_TRANSPORT | GO_TRIVALENT_INORGANIC_CATION_TRANSPORT
+## GO_IRON_ION_TRANSPORT | GO_NEURON_PROJECTION_GUIDANCE
+## GO_GLIAL_CELL_MIGRATION | GO_SPINAL_CORD_DEVELOPMENT
+## GO_REGULATION_OF_SYNAPSE_ORGANIZATION | GO_ACTION_POTENTIAL
+## GO_MESONEPHROS_DEVELOPMENT | GO_NEGATIVE_REGULATION_OF_SMOOTH_MUSCLE_CELL_MIGRATION
+## 
+## ** Contrast LPvsML **
+## GO_NEGATIVE_REGULATION_OF_NECROTIC_CELL_DEATH | GO_PARTURITION
+## GO_RESPONSE_TO_VITAMIN_D | GO_GPI_ANCHOR_METABOLIC_PROCESS
+## GO_REGULATION_OF_BLOOD_PRESSURE | GO_DETECTION_OF_MOLECULE_OF_BACTERIAL_ORIGIN
+## GO_CELL_SUBSTRATE_ADHESION | GO_PROTEIN_TRANSPORT_ALONG_MICROTUBULE
+## GO_INTRACILIARY_TRANSPORT | GO_CELLULAR_RESPONSE_TO_VITAMIN
+## 
+## ** Comparison analysis ** 
+## GO_IRON_ION_TRANSPORT | GO_FERRIC_IRON_TRANSPORT
+## GO_TRIVALENT_INORGANIC_CATION_TRANSPORT | GO_NEURON_PROJECTION_GUIDANCE
+## GO_MESONEPHROS_DEVELOPMENT | GO_SYNAPSE_ORGANIZATION
+## GO_REGULATION_OF_SYNAPSE_ORGANIZATION | GO_MEMBRANE_DEPOLARIZATION_DURING_CARDIAC_MUSCLE_CELL_ACTION_POTENTIAL
+## GO_HOMOPHILIC_CELL_ADHESION_VIA_PLASMA_MEMBRANE_ADHESION_MOLECULES | GO_NEGATIVE_REGULATION_OF_SMOOTH_MUSCLE_CELL_MIGRATION
+## 
+## **** Top 10 gene sets in the c5 GO Gene Sets (CC) collection **** 
+## ** Contrast BasalvsLP **
+## GO_PROTON_TRANSPORTING_V_TYPE_ATPASE_COMPLEX | GO_VACUOLAR_PROTON_TRANSPORTING_V_TYPE_ATPASE_COMPLEX
+## GO_MICROTUBULE_END | GO_MICROTUBULE_PLUS_END
+## GO_ACTIN_FILAMENT_BUNDLE | GO_CELL_CELL_ADHERENS_JUNCTION
+## GO_NEUROMUSCULAR_JUNCTION | GO_AP_TYPE_MEMBRANE_COAT_ADAPTOR_COMPLEX
+## GO_INTERMEDIATE_FILAMENT | GO_CONDENSED_NUCLEAR_CHROMOSOME_CENTROMERIC_REGION
+## 
+## ** Contrast BasalvsML **
+## GO_FILOPODIUM_MEMBRANE | GO_LATE_ENDOSOME_MEMBRANE
+## GO_PROTON_TRANSPORTING_V_TYPE_ATPASE_COMPLEX | GO_NEUROMUSCULAR_JUNCTION
+## GO_COATED_MEMBRANE | GO_ACTIN_FILAMENT_BUNDLE
+## GO_CLATHRIN_COAT | GO_AP_TYPE_MEMBRANE_COAT_ADAPTOR_COMPLEX
+## GO_CLATHRIN_ADAPTOR_COMPLEX | GO_CONTRACTILE_FIBER
+## 
+## ** Contrast LPvsML **
+## GO_CILIARY_TRANSITION_ZONE | GO_TCTN_B9D_COMPLEX
+## GO_NUCLEAR_NUCLEOSOME | GO_INTRINSIC_COMPONENT_OF_ORGANELLE_MEMBRANE
+## GO_ENDOPLASMIC_RETICULUM_QUALITY_CONTROL_COMPARTMENT | GO_KERATIN_FILAMENT
+## GO_PROTEASOME_COMPLEX | GO_CILIARY_BASAL_BODY
+## GO_PROTEASOME_CORE_COMPLEX | GO_CORNIFIED_ENVELOPE
+## 
+## ** Comparison analysis ** 
+## GO_PROTON_TRANSPORTING_V_TYPE_ATPASE_COMPLEX | GO_ACTIN_FILAMENT_BUNDLE
+## GO_NEUROMUSCULAR_JUNCTION | GO_AP_TYPE_MEMBRANE_COAT_ADAPTOR_COMPLEX
+## GO_CONTRACTILE_FIBER | GO_INTERMEDIATE_FILAMENT
+## GO_LATE_ENDOSOME_MEMBRANE | GO_CLATHRIN_VESICLE_COAT
+## GO_ENDOPLASMIC_RETICULUM_QUALITY_CONTROL_COMPARTMENT | GO_MICROTUBULE_END
+## 
+## **** Top 10 gene sets in the c5 GO Gene Sets (MF) collection **** 
+## ** Contrast BasalvsLP **
+## GO_HYDROGEN_EXPORTING_ATPASE_ACTIVITY | GO_SIGNALING_PATTERN_RECOGNITION_RECEPTOR_ACTIVITY
+## GO_LIPID_TRANSPORTER_ACTIVITY | GO_TRIGLYCERIDE_LIPASE_ACTIVITY
+## GO_AMINE_BINDING | GO_STRUCTURAL_CONSTITUENT_OF_MUSCLE
+## GO_NEUROPEPTIDE_RECEPTOR_ACTIVITY | GO_WIDE_PORE_CHANNEL_ACTIVITY
+## GO_CATION_TRANSPORTING_ATPASE_ACTIVITY | GO_LIPASE_ACTIVITY
+## 
+## ** Contrast BasalvsML **
+## GO_G_PROTEIN_COUPLED_RECEPTOR_ACTIVITY | GO_TRANSMEMBRANE_RECEPTOR_PROTEIN_KINASE_ACTIVITY
+## GO_STRUCTURAL_CONSTITUENT_OF_MUSCLE | GO_VOLTAGE_GATED_SODIUM_CHANNEL_ACTIVITY
+## GO_CORECEPTOR_ACTIVITY | GO_TRANSMEMBRANE_RECEPTOR_PROTEIN_TYROSINE_KINASE_ACTIVITY
+## GO_LIPID_TRANSPORTER_ACTIVITY | GO_SULFOTRANSFERASE_ACTIVITY
+## GO_CATION_TRANSPORTING_ATPASE_ACTIVITY | GO_PEPTIDE_RECEPTOR_ACTIVITY
+## 
+## ** Contrast LPvsML **
+## GO_MANNOSE_BINDING | GO_PHOSPHORIC_DIESTER_HYDROLASE_ACTIVITY
+## GO_BETA_1_3_GALACTOSYLTRANSFERASE_ACTIVITY | GO_COMPLEMENT_BINDING
+## GO_ALDEHYDE_DEHYDROGENASE_NAD_ACTIVITY | GO_MANNOSIDASE_ACTIVITY
+## GO_LIGASE_ACTIVITY_FORMING_CARBON_NITROGEN_BONDS | GO_CARBOHYDRATE_PHOSPHATASE_ACTIVITY
+## GO_LIPASE_ACTIVITY | GO_PEPTIDE_RECEPTOR_ACTIVITY
+## 
+## ** Comparison analysis ** 
+## GO_STRUCTURAL_CONSTITUENT_OF_MUSCLE | GO_LIPID_TRANSPORTER_ACTIVITY
+## GO_CATION_TRANSPORTING_ATPASE_ACTIVITY | GO_CHEMOREPELLENT_ACTIVITY
+## GO_HEPARAN_SULFATE_PROTEOGLYCAN_BINDING | GO_TRANSMEMBRANE_RECEPTOR_PROTEIN_TYROSINE_KINASE_ACTIVITY
+## GO_LIPASE_ACTIVITY | GO_PEPTIDE_RECEPTOR_ACTIVITY
+## GO_CORECEPTOR_ACTIVITY | GO_TRANSMEMBRANE_RECEPTOR_PROTEIN_KINASE_ACTIVITY
+## 
+## **** Top 10 gene sets in the KEGG Pathways collection **** 
+## ** Contrast BasalvsLP **
+## Collecting duct acid secretion | alpha-Linolenic acid metabolism
+## Synaptic vesicle cycle | Hepatitis C
+## Vascular smooth muscle contraction | Rheumatoid arthritis
+## cGMP-PKG signaling pathway | Axon guidance
+## Progesterone-mediated oocyte maturation | Arrhythmogenic right ventricular cardiomyopathy (ARVC)
+## 
+## ** Contrast BasalvsML **
+## Collecting duct acid secretion | Synaptic vesicle cycle
+## Other glycan degradation | Axon guidance
+## Arrhythmogenic right ventricular cardiomyopathy (ARVC) | Glycerophospholipid metabolism
+## Lysosome | Vascular smooth muscle contraction
+## Protein digestion and absorption | Oxytocin signaling pathway
+## 
+## ** Contrast LPvsML **
+## Glycosylphosphatidylinositol(GPI)-anchor biosynthesis | Histidine metabolism
+## Drug metabolism - cytochrome P450 | PI3K-Akt signaling pathway
+## Proteasome | Sulfur metabolism
+## Renin-angiotensin system | Nitrogen metabolism
+## Tyrosine metabolism | Systemic lupus erythematosus
+## 
+## ** Comparison analysis ** 
+## Collecting duct acid secretion | Synaptic vesicle cycle
+## Vascular smooth muscle contraction | Axon guidance
+## Arrhythmogenic right ventricular cardiomyopathy (ARVC) | Oxytocin signaling pathway
+## Lysosome | Adrenergic signaling in cardiomyocytes
+## Linoleic acid metabolism | cGMP-PKG signaling pathway</code></pre>
+<p>EGSEA’s <em>comparative</em> analysis allows researchers to estimate the significance of a gene set across multiple experimental contrasts. This analysis helps in the identification of biological processes that are perturbed in multiple experimental conditions simultaneously. This experiment is the RNA-seq equivalent of Lim <em>et al.</em> (2010) <span class="citation">(Lim et al. 2010)</span>, who used Illumina microarrays to study the same cell populations (see later), so it is reassuring to observe the <code>LIM</code> gene signatures derived from this experiment amongst the top ranked c2 gene signatures in both the individual contrasts and comparative results.</p>
+<p>Another way of exploring the EGSEA results is to retrieve the top ranked <span class="math inline">\(N\)</span> sets in each collection and contrast using the method <em>topSets</em>. For example, the top 10 gene sets in the c2 collection for the comparative analysis can be retrieved as follows:</p>
+<pre class="r"><code>topSets(gsa, gs.label=&quot;c2&quot;, contrast = &quot;comparison&quot;, names.only=TRUE)</code></pre>
+<pre><code>## Extracting the top gene sets of the collection 
+## c2 Curated Gene Sets for the contrast comparison
+##  Sorted by med.rank</code></pre>
+<pre><code>##  [1] &quot;LIM_MAMMARY_LUMINAL_MATURE_DN&quot;                  
+##  [2] &quot;LIM_MAMMARY_STEM_CELL_DN&quot;                       
+##  [3] &quot;NAKAYAMA_SOFT_TISSUE_TUMORS_PCA2_UP&quot;            
+##  [4] &quot;LIM_MAMMARY_LUMINAL_MATURE_UP&quot;                  
+##  [5] &quot;COLDREN_GEFITINIB_RESISTANCE_DN&quot;                
+##  [6] &quot;LIM_MAMMARY_STEM_CELL_UP&quot;                       
+##  [7] &quot;CHARAFE_BREAST_CANCER_LUMINAL_VS_MESENCHYMAL_UP&quot;
+##  [8] &quot;LIM_MAMMARY_LUMINAL_PROGENITOR_UP&quot;              
+##  [9] &quot;BERTUCCI_MEDULLARY_VS_DUCTAL_BREAST_CANCER_DN&quot;  
+## [10] &quot;MIKKELSEN_IPS_WITH_HCP_H3K27ME3&quot;</code></pre>
+<p>The gene sets are ordered based on their <code>med.rank</code> score as selected when <em>egsea</em> was invoked above. When the argument <code>names.only</code> is set to <code>FALSE</code>, additional information is displayed for each gene set including gene set annotation, the EGSEA scores and the individual rankings by each base method.
+As expected, gene sets retrieved by EGSEA included the <code>LIM</code> gene sets <span class="citation">(Lim et al. 2010)</span> that were derived from microarray profiles of analagous mammary cell populations (sets 1, 2, 4, 6 and 8) as well as those derived from populations with similar origin (sets 7 and 9) and behaviour or characteristics (sets 5 and 10).</p>
+<p>Next, <em>topSets</em> can be used to search for gene sets of interest based on different EGSEA scores as well as the rankings of individual methods. For example, the ranking of the six <code>LIM</code> gene sets from the c2 collection can be displayed based on the <code>med.rank</code> as follows:</p>
+<pre class="r"><code>t = topSets(gsa, contrast = &quot;comparison&quot;,
+             names.only=FALSE, number = Inf, verbose = FALSE)
+t[grep(&quot;LIM_&quot;, rownames(t)), c(&quot;p.adj&quot;, &quot;Rank&quot;, &quot;med.rank&quot;, &quot;vote.rank&quot;)]</code></pre>
+<pre><code>##                                           p.adj Rank med.rank vote.rank
+## LIM_MAMMARY_LUMINAL_MATURE_DN      1.646053e-29    1       36         5
+## LIM_MAMMARY_STEM_CELL_DN           6.082053e-43    2       37         5
+## LIM_MAMMARY_LUMINAL_MATURE_UP      2.469061e-22    4       92         5
+## LIM_MAMMARY_STEM_CELL_UP          3.154132e-103    6      134         5
+## LIM_MAMMARY_LUMINAL_PROGENITOR_UP  3.871536e-30    8      180         5
+## LIM_MAMMARY_LUMINAL_PROGENITOR_DN  2.033005e-06  179      636       115</code></pre>
+<p>While five of the <code>LIM</code> gene sets are ranked in the top 10 by EGSEA, the values shown in the median rank (<code>med.rank</code>) column indicate that individual methods can assign much lower ranks to these sets.
+EGSEA’s prioritisation of these gene sets demonstrates the benefit of an ensemble approach.</p>
+<p>Similarly, we can find the top 10 pathways in the KEGG collection from the ensemble analysis for the Basal versus LP contrast and the comparative analysis as follows:</p>
+<pre class="r"><code>topSets(gsa, gs.label=&quot;kegg&quot;, contrast=&quot;BasalvsLP&quot;, sort.by=&quot;med.rank&quot;)</code></pre>
+<pre><code>## Extracting the top gene sets of the collection 
+## KEGG Pathways for the contrast BasalvsLP
+##  Sorted by med.rank</code></pre>
+<pre><code>##  [1] &quot;Collecting duct acid secretion&quot;                        
+##  [2] &quot;alpha-Linolenic acid metabolism&quot;                       
+##  [3] &quot;Synaptic vesicle cycle&quot;                                
+##  [4] &quot;Hepatitis C&quot;                                           
+##  [5] &quot;Vascular smooth muscle contraction&quot;                    
+##  [6] &quot;Rheumatoid arthritis&quot;                                  
+##  [7] &quot;cGMP-PKG signaling pathway&quot;                            
+##  [8] &quot;Axon guidance&quot;                                         
+##  [9] &quot;Progesterone-mediated oocyte maturation&quot;               
+## [10] &quot;Arrhythmogenic right ventricular cardiomyopathy (ARVC)&quot;</code></pre>
+<pre class="r"><code>topSets(gsa, gs.label=&quot;kegg&quot;, contrast=&quot;comparison&quot;, sort.by=&quot;med.rank&quot;)</code></pre>
+<pre><code>## Extracting the top gene sets of the collection 
+## KEGG Pathways for the contrast comparison
+##  Sorted by med.rank</code></pre>
+<pre><code>##  [1] &quot;Collecting duct acid secretion&quot;                        
+##  [2] &quot;Synaptic vesicle cycle&quot;                                
+##  [3] &quot;Vascular smooth muscle contraction&quot;                    
+##  [4] &quot;Axon guidance&quot;                                         
+##  [5] &quot;Arrhythmogenic right ventricular cardiomyopathy (ARVC)&quot;
+##  [6] &quot;Oxytocin signaling pathway&quot;                            
+##  [7] &quot;Lysosome&quot;                                              
+##  [8] &quot;Adrenergic signaling in cardiomyocytes&quot;                
+##  [9] &quot;Linoleic acid metabolism&quot;                              
+## [10] &quot;cGMP-PKG signaling pathway&quot;</code></pre>
+<p>EGSEA highlights many pathways with known importance in the mammary gland such as those associated with distinct roles in lactation like basal cell contraction (<em>Vascular smooth muscle contraction</em> and <em>Oxytocin signalling pathway</em>) and milk production and secretion from luminal lineage cells (<em>Collecting duct acid secretion</em>, <em>Synaptic vesicle cycle</em> and <em>Lysosome</em>).</p>
+</div>
+<div id="visualizing-results-at-the-gene-set-level" class="section level5">
+<h5><span class="header-section-number">3.1.2.4.2</span> Visualizing results at the gene set level</h5>
+<p>Graphical representation of gene expression patterns within and between gene sets is an essential part of communicating the results of an analysis to collaborators and other researchers. <strong>EGSEA</strong> enables users to explore the elements of a gene set via a heatmap using the <em>plotHeatmap</em> method.
+Figure 2 shows examples for the <em>LIM MAMMARY STEM CELL UP</em> and <em>LIM MAMMARY STEM CELL DN</em> signatures which can be visualized across all contrasts using the code below.</p>
+<pre class="r"><code>plotHeatmap(gsa, gene.set=&quot;LIM_MAMMARY_STEM_CELL_UP&quot;, gs.label=&quot;c2&quot;,
+         contrast = &quot;comparison&quot;, file.name = &quot;hm_cmp_LIM_MAMMARY_STEM_CELL_UP&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating heatmap for LIM_MAMMARY_STEM_CELL_UP from the collection 
+## c2 Curated Gene Sets and for the contrast comparison</code></pre>
+<pre class="r"><code>plotHeatmap(gsa, gene.set=&quot;LIM_MAMMARY_STEM_CELL_DN&quot;, gs.label=&quot;c2&quot;,
+         contrast = &quot;comparison&quot;, file.name = &quot;hm_cmp_LIM_MAMMARY_STEM_CELL_DN&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating heatmap for LIM_MAMMARY_STEM_CELL_DN from the collection 
+## c2 Curated Gene Sets and for the contrast comparison</code></pre>
+<p><img src="hm_cmp_LIM_MAMMARY_STEM_CELL_UP.png" alt="Heatmap of log-fold-changes for genes in the LIM MAMMARY STEM CELL UP gene set across three experimental comparisons." /><img src="hm_cmp_LIM_MAMMARY_STEM_CELL_DN.png" alt="Heatmap of log-fold-changes for genes in the LIM MAMMARY STEM CELL DN gene set across the three experimental comparisons (Basal vs LP, Basal vs ML and LP vs ML)." /></p>
+<p>When using <em>plotHeatmap</em>, the <code>gene.set</code> value must match the name returned from the <em>topSets</em> method. The rows of the heatmap represent the genes in the set and the columns represent the experimental contrasts. The heatmap colour-scale ranges from down-regulated (blue) to up-regulated (red) while the row labels (Gene symbols) are coloured in green when the genes are statistically significant in the DE analysis (i.e. FDR <span class="math inline">\(\leq\)</span> 0.05 in at least one contrast). Heatmaps can be generated for individual comparisons by changing the <code>contrast</code> argument of <em>plotHeatmap</em>. The <em>plotHeatmap</em> method also generates a CSV file that includes the DE analysis results from <code>limma::topTable</code> for all expressed genes in the selected gene set and for each contrast (in the case of <code>contrast = &quot;comparison&quot;</code>). This file can be used to create customised plots using other R/Bioconductor packages.</p>
+<p>In addition to heatmaps, pathway maps can be generated for the KEGG gene sets using the <em>plotPathway</em> method which uses functionality from the <strong>pathview</strong> package <span class="citation">(Luo and Brouwer 2013)</span>. For example, the first KEGG signalling pathway retrieved for the contrast <code>BasalvsLP</code> is <em>Vascular smooth muscle contraction</em> and can be visualized as follows:</p>
+<pre class="r"><code>plotPathway(gsa, gene.set = &quot;Vascular smooth muscle contraction&quot;, 
+             contrast = &quot;BasalvsLP&quot;, gs.label = &quot;kegg&quot;, 
+             file.name = &quot;Vascular_smooth_muscle_contraction&quot;)</code></pre>
+<div class="figure">
+<img src="mmu04270.pathview.png" alt="Pathway map for Vascular smooth muscle contraction (KEGG pathway mmu04270) with log-fold-changes from the Basal vs LP contrast." />
+<p class="caption">Pathway map for <em>Vascular smooth muscle contraction</em> (KEGG pathway mmu04270) with log-fold-changes from the Basal vs LP contrast.</p>
+</div>
+<p>Pathway components are coloured based on the gene-specific log-fold-changes as calculated in the <strong>limma</strong> DE analysis (Figure 3). Similarly, a comparative map can be generated for a given pathway across all contrasts.</p>
+<pre class="r"><code>plotPathway(gsa, gene.set = &quot;Vascular smooth muscle contraction&quot;, 
+             contrast = &quot;comparison&quot;, gs.label = &quot;kegg&quot;, 
+             file.name = &quot;Vascular_smooth_muscle_contraction_cmp&quot;)</code></pre>
+<div class="figure">
+<img src="mmu04270.pathview.multi.png" alt="Pathway map for Vascular smooth muscle contraction (KEGG pathway mmu04270) with log-fold-changes across three experimental contrasts shown for each gene in the same order left to right that they appear in the contrasts matrix (i.e. Basal vs LP, Basal vs ML and LP vs ML)." />
+<p class="caption">Pathway map for <em>Vascular smooth muscle contraction</em> (KEGG pathway mmu04270) with log-fold-changes across three experimental contrasts shown for each gene in the same order left to right that they appear in the contrasts matrix (i.e. Basal vs LP, Basal vs ML and LP vs ML).</p>
+</div>
+<p>The comparative pathway map shows the log-fold-changes for each gene in each contrast by dividing the gene nodes on the map into multiple columns, one for each contrast (Figure 4).</p>
+</div>
+<div id="visualizing-results-at-the-experiment-level" class="section level5">
+<h5><span class="header-section-number">3.1.2.4.3</span> Visualizing results at the experiment level</h5>
+<p>Since <strong>EGSEA</strong> combines the results from multiple gene set testing methods, it can be interesting to compare how different base methods rank a given gene set collection for a selected contrast.
+The <em>plotMethods</em> command generates a multi-dimensional scaling (MDS) plot for the ranking of gene sets across all the base methods used (Figure 5). Methods that rank gene sets similarly will appear closer together in this plot and we see that certain methods consistently cluster together across different gene set collections. The clustering of methods does not necessarily follow the style of null hypothesis tested though (i.e. <em>self-contained</em> versus <em>competitive</em>).</p>
+<pre class="r"><code>plotMethods(gsa, gs.label = &quot;c2&quot;, contrast = &quot;BasalvsLP&quot;, 
+         file.name = &quot;mds_c2_BasalvsLP&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating methods plot for the collection 
+## c2 Curated Gene Sets and for the contrast BasalvsLP</code></pre>
+<pre><code>## [1] &quot;png &quot; &quot;  2 &quot;</code></pre>
+<pre class="r"><code>plotMethods(gsa, gs.label = &quot;c5BP&quot;, contrast = &quot;BasalvsLP&quot;, 
+         file.name = &quot;mds_c5_BasalvsLP&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating methods plot for the collection 
+## c5 GO Gene Sets (BP) and for the contrast BasalvsLP</code></pre>
+<pre><code>## [1] &quot;png &quot; &quot;  2 &quot;</code></pre>
+<p><img src="mds_c2_BasalvsLP.png" alt="Multi-dimensional scaling (MDS) plot showing the relationship between different gene set testing methods based on the rankings of the c2" /><img src="mds_c5_BasalvsLP.png" alt="and c5 gene sets on the Basal vs LP contrast." /></p>
+<p>The significance of each gene set in a given collection for a selected contrast can be visualized using EGSEA’s <em>plotSummary</em> method.</p>
+<pre class="r"><code>plotSummary(gsa, gs.label = 3, contrast = 3, 
+         file.name = &quot;summary_kegg_LPvsML&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating Summary plots for the collection 
+## c5 GO Gene Sets (CC) and for the contrast LPvsML</code></pre>
+<p><img src="summary_kegg_LPvsML-dir.png" alt="Summary plots (directional (left) and" /><img src="summary_kegg_LPvsML-rank.png" alt="ranking (right)) of the significance of all gene sets in the KEGG collection for the LP vs ML contrast." /></p>
+<p>The summary plot visualizes the gene sets as bubbles based on the <span class="math inline">\(-\log_{10}{(p\mbox{-}value)}\)</span> (X-axis) and the average absolute log fold-change of the set genes (Y-axis). The sets that appear towards the top-right corner of this plot are most likely to be biologically relevant. EGSEA generates two types of summary plots: the directional summary plot (Figure 6a), which colours the bubbles based on the regulation direction of the gene set (the direction of the majority of genes), and the ranking summary plot (Figure 6b), which colours the bubbles based on the gene set ranking in a given collection (according to the <code>sort.by</code> argument). The bubble size is based on the EGSEA significance score in the former plot and the gene set size in the latter. For example, the summary plots of the KEGG pathways for the LP vs ML contrast show few significant pathways (Figure 6). The blue colour labels on the ranking plot represents gene sets that do not appear in the top <span class="math inline">\(10\)</span> gene sets that are selected based on the <code>sort.by</code> argument while their EGSEA significance scores are among the top <span class="math inline">\(5\)</span> in the entire collection. This is used to identify gene sets with high significance scores that were not captured by the <code>sort.by</code> score.
+The gene set IDs and more information about each set can be found in the EGSEA HTML report generated later.</p>
+<p>By default, <em>plotSummary</em> uses a gene set’s <code>p.adj</code> score for the X-axis. This behaviour can be easily modified by assigning any of the available <code>sort.by</code> scores into the parameter <code>x.axis</code>, for example, <code>med.rank</code> can be used to create an EGSEA summary plot (Figure 7, left panel) as follows:</p>
+<pre class="r"><code>plotSummary(gsa, gs.label = 1, contrast = 3, 
+         file.name = &quot;summary_c2_LPvsML&quot;, 
+         x.axis = &quot;med.rank&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating Summary plots for the collection 
+## c2 Curated Gene Sets and for the contrast LPvsML</code></pre>
+<p>The summary plot tends to become very cluttered when the size of the gene set collection is very large, as in Figure 7, left panel. The parameter <code>x.cutoff</code> can be used to focus in on the significant gene sets rather than plotting the entire gene set collection, for example (Figure 7, right panel):</p>
+<pre class="r"><code>plotSummary(gsa, gs.label = 1, contrast = 3, 
+         file.name = &quot;summary_sig_c2_LPvsML&quot;, 
+         x.axis = &quot;med.rank&quot;, x.cutoff=300, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating Summary plots for the collection 
+## c2 Curated Gene Sets and for the contrast LPvsML</code></pre>
+<p><img src="summary_c2_LPvsML-dir.png" alt="Summary plots (directional (left) and" /><img src="summary_sig_c2_LPvsML-dir.png" alt="filtered directional (right)) of the significance of selected gene sets in the c2 collection for the LP vs ML contrast. The x-axis in each plot is the med.rank. A cut-off of 300 was used to select significant gene sets in the filtered plot." /></p>
+<p>Comparative summary plots can be also generated to compare the significance of gene sets between two contrasts, for example, the comparison between Basal vs LP and Basal vs ML (Figure 8a) shows that most of the KEGG pathways are regulated in the same direction with relatively few pathways regulated in opposite directions (purple coloured bubbles in Figure 8, left panel). Such figures can be generated using the <em>plotSummary</em> method as follows:</p>
+<pre class="r"><code>plotSummary(gsa, gs.label = &quot;kegg&quot;, contrast = c(1,2), 
+         file.name = &quot;summary_kegg_1vs2&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating Summary plots for the collection 
+## KEGG Pathways and for the comparison BasalvsLP vs BasalvsML</code></pre>
+<p><img src="summary_kegg_1vs2-dir.png" alt="Summary plots (directional (left) and" /><img src="summary_kegg_1vs2-rank.png" alt="ranking (right)) of the significance of all gene sets in the KEGG collection for the comparison of the contrasts: Basal vs LP and Basal vs ML." /></p>
+<p>The <em>plotSummary</em> method has two useful parameters: (i) <code>use.names</code> that can be used to display gene set names instead of gene set IDs and (ii) <code>interactive</code> that can be used to generate an interactive version of this plot.</p>
+<p>The c5 collection of MSigDB and the Gene Ontology collection of GeneSetDB contain Gene Ontology (GO) terms. These collections are meant to be non-redundant, containing only a small subset of the entire GO and visualizing how these terms are related to each other can be informative. <strong>EGSEA</strong> utilizes functionality from the <strong>topGO</strong> package <span class="citation">(Alexa and Rahnenfuhrer 2016)</span> to generate GO graphs for the significant biological processes (BPs), cellular compartments (CCs) and molecular functions (MFs).
+The <em>plotGOGraph</em> method can generate such a display (Figure 9) as follows:</p>
+<pre class="r"><code>plotGOGraph(gsa, gs.label=&quot;c5BP&quot;, contrast = 1, file.name=&quot;BasalvsLP-c5BP-top-&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating GO Graphs for the collection c5 GO Gene Sets (BP)
+##  and for the contrast BasalvsLP based on the med.rank</code></pre>
+<pre><code>## 
+## Building most specific GOs .....</code></pre>
+<pre><code>## Loading required package: org.Mm.eg.db</code></pre>
+<pre><code>##  ( 11064 GO terms found. )</code></pre>
+<pre><code>## 
+## Build GO DAG topology ..........</code></pre>
+<pre><code>##  ( 15062 GO terms and 35742 relations. )</code></pre>
+<pre><code>## 
+## Annotating nodes ...............</code></pre>
+<pre><code>##  ( 12865 genes annotated to the GO terms. )</code></pre>
+<pre><code>## 
+## Building most specific GOs .....</code></pre>
+<pre><code>##  ( 3735 GO terms found. )</code></pre>
+<pre><code>## 
+## Build GO DAG topology ..........</code></pre>
+<pre><code>##  ( 4184 GO terms and 5460 relations. )</code></pre>
+<pre><code>## 
+## Annotating nodes ...............</code></pre>
+<pre><code>##  ( 12780 genes annotated to the GO terms. )</code></pre>
+<pre><code>## 
+## Building most specific GOs .....</code></pre>
+<pre><code>##  ( 1650 GO terms found. )</code></pre>
+<pre><code>## 
+## Build GO DAG topology ..........</code></pre>
+<pre><code>##  ( 1935 GO terms and 3637 relations. )</code></pre>
+<pre><code>## 
+## Annotating nodes ...............</code></pre>
+<pre><code>##  ( 13072 genes annotated to the GO terms. )</code></pre>
+<pre><code>## Loading required package: Rgraphviz</code></pre>
+<pre><code>## Loading required package: grid</code></pre>
+<pre><code>## 
+## Attaching package: &#39;grid&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:topGO&#39;:
+## 
+##     depth</code></pre>
+<pre><code>## 
+## Attaching package: &#39;Rgraphviz&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:IRanges&#39;:
+## 
+##     from, to</code></pre>
+<pre><code>## The following objects are masked from &#39;package:S4Vectors&#39;:
+## 
+##     from, to</code></pre>
+<pre class="r"><code>plotGOGraph(gsa, gs.label=&quot;c5CC&quot;, contrast = 1, file.name=&quot;BasalvsLP-c5CC-top-&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating GO Graphs for the collection c5 GO Gene Sets (CC)
+##  and for the contrast BasalvsLP based on the med.rank</code></pre>
+<pre><code>## 
+## Building most specific GOs .....</code></pre>
+<pre><code>##  ( 11064 GO terms found. )</code></pre>
+<pre><code>## 
+## Build GO DAG topology ..........</code></pre>
+<pre><code>##  ( 15062 GO terms and 35742 relations. )</code></pre>
+<pre><code>## 
+## Annotating nodes ...............</code></pre>
+<pre><code>##  ( 12865 genes annotated to the GO terms. )</code></pre>
+<pre><code>## 
+## Building most specific GOs .....</code></pre>
+<pre><code>##  ( 3735 GO terms found. )</code></pre>
+<pre><code>## 
+## Build GO DAG topology ..........</code></pre>
+<pre><code>##  ( 4184 GO terms and 5460 relations. )</code></pre>
+<pre><code>## 
+## Annotating nodes ...............</code></pre>
+<pre><code>##  ( 12780 genes annotated to the GO terms. )</code></pre>
+<pre><code>## 
+## Building most specific GOs .....</code></pre>
+<pre><code>##  ( 1650 GO terms found. )</code></pre>
+<pre><code>## 
+## Build GO DAG topology ..........</code></pre>
+<pre><code>##  ( 1935 GO terms and 3637 relations. )</code></pre>
+<pre><code>## 
+## Annotating nodes ...............</code></pre>
+<pre><code>##  ( 13072 genes annotated to the GO terms. )</code></pre>
+<pre><code>## png 
+##   2</code></pre>
+<p><img src="BasalvsLP-c5BP-top-BP.png" alt="GO graphs of the top significant GO terms from the c5 gene set collection (biological process (left)" /><img src="BasalvsLP-c5CC-top-CC.png" alt="and cellular compartment (right)) for the contrast Basal vs LP." /></p>
+<p>The GO graphs are coloured based on the values of the argument <code>sort.by</code>, which in this instance was taken as <code>med.rank</code> by default since this was selected when EGSEA was invoked. The top five most significant GO terms are highlighted by default in each GO category (MF, CC or BP). More terms can be displayed by changing the value of the parameter <code>noSig</code>. However, this might generate very complicated and unresolved graphs. The colour of the nodes vary between red (most significant) and yellow (least significant). The values of the <code>sort.by</code> scoring function are scaled between 0 and 1 to generate these graphs.</p>
+<p>Another way to visualize results at the experiment level is via a summary <em>bar plot</em>. The method <em>plotBars</em> can be used to generate a bar plot for the top <span class="math inline">\(N\)</span> gene sets in an individual collection for a particular contrast or from a comparative analysis across multiple contrasts.
+For example, the top 20 gene sets of the comparative analysis carried out on the c2 collection of MSigDB can be visualized in a <em>bar plot</em> (Figure 10) as follows:</p>
+<pre class="r"><code>plotBars(gsa, gs.label = &quot;c2&quot;, contrast=&quot;comparison&quot;, file.name=&quot;comparison-c2-bars&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating a bar plot for the collection c2 Curated Gene Sets 
+##  and the contrast comparison</code></pre>
+<pre><code>## png 
+##   2</code></pre>
+<p>The colour of each bar is based on the regulation direction of the gene sets, i.e., red for up-regulated, blue for down-regulated and purple for neutral regulation (in the case of comparative analysis of experimental contrasts that have show opposite behaviours).
+By default, the <span class="math inline">\(-\log_{10}(p.adj)\)</span> values are plotted for the top 20 gene sets selected and ordered based on the <code>sort.by</code> parameter. The parameters <code>bar.vals</code>, <code>number</code> and <code>sort.by</code> of <em>plotBars</em> can be changed to customize the bar plot.</p>
+<div class="figure">
+<img src="comparison-c2-bars.png" alt="Bar plot of the -\log_{10}(p-value) of the top 20 gene sets from the comparative analysis of the c2 collection." />
+<p class="caption">Bar plot of the <span class="math inline">\(-\log_{10}(p-value)\)</span> of the top 20 gene sets from the comparative analysis of the c2 collection.</p>
+</div>
+<p>When changes over multiple conditions are of interest, a <em>summary heatmap</em> can be a useful visualization. The method <em>plotSummaryHeatmaps</em> generates a heatmap of the top <span class="math inline">\(N\)</span> gene sets in the comparative analysis across all experimental conditions. By default, 20 gene sets are selected based on the <code>sort.by</code> parameter and the values plotted are the average log-fold changes at the set level for the genes regulated in the same direction as the set regulation direction, i.e. <code>avg.logfc.dir</code>. The parameters <code>number</code>, <code>sort.by</code> and <code>hm.vals</code> of the <em>plotSummaryHeatmaps</em> can be used to customize the summary heatmap. Additionally, the parameter <code>show.vals</code> can be used to display the values of a specific EGSEA score on the heatmap cells. An example summary heatmap can be generated for the MSigDB c2 collection with the following code:</p>
+<pre class="r"><code>plotSummaryHeatmap(gsa, gs.label=&quot;c2&quot;, hm.vals = &quot;avg.logfc.dir&quot;,
+         file.name=&quot;summary_heatmaps_c2&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating summary heatmap for the collection c2 Curated Gene Sets
+## sort.by: med.rank, hm.vals: avg.logfc.dir, show.vals:</code></pre>
+<pre class="r"><code>plotSummaryHeatmap(gsa, gs.label=&quot;kegg&quot;, hm.vals = &quot;avg.logfc.dir&quot;,
+         file.name=&quot;summary_heatmaps_kegg&quot;, format=&quot;png&quot;)</code></pre>
+<pre><code>## Generating summary heatmap for the collection KEGG Pathways
+## sort.by: med.rank, hm.vals: avg.logfc.dir, show.vals:</code></pre>
+<p><img src="summary_heatmaps_c2.png" alt="Summary heatmaps for the top 20 gene sets from the c2 (left)" /><img src="summary_heatmaps_kegg.png" alt="and KEGG collections obtained from the EGSEA comparative analysis." /></p>
+<p>We find the heatmap view at both the gene set and summary level and the summary level bar plots to be useful summaries to include in publications to highlight the gene set testing results.
+The top differentially expressed genes from each contrast can be accessed from the <em>EGSEAResults</em> object using the <code>limmaTopTable</code> method.</p>
+<pre class="r"><code>t = limmaTopTable(gsa, contrast=1)
+head(t)</code></pre>
+<pre><code>##        ENTREZID   SYMBOL CHR     logFC  AveExpr         t      P.Value
+## 19253     19253   Ptpn18   1 -5.632846 4.129760 -34.54340 5.871553e-10
+## 16324     16324    Inhbb   1 -4.792255 6.462247 -33.22206 7.993374e-10
+## 53624     53624    Cldn7  11 -5.514605 6.296762 -40.24283 1.752279e-10
+## 218518   218518 Marveld2  13 -5.139809 4.931334 -34.78540 5.556030e-10
+## 12759     12759      Clu  14 -5.442877 8.857907 -40.97191 1.519884e-10
+## 70350     70350    Basp1  15 -6.073297 5.248349 -34.29589 6.215256e-10
+##           adj.P.Val        B
+## 19253  9.623639e-07 13.21229
+## 16324  9.623639e-07 13.34734
+## 53624  9.623639e-07 14.52532
+## 218518 9.623639e-07 13.46618
+## 12759  9.623639e-07 14.74741
+## 70350  9.623639e-07 13.34300</code></pre>
+</div>
+<div id="creating-an-html-report-of-the-results" class="section level5">
+<h5><span class="header-section-number">3.1.2.4.4</span> Creating an HTML report of the results</h5>
+<p>To generate an EGSEA HTML report for this dataset, you can either set <code>report=TRUE</code> when you invoke <code>egsea</code> or use the S4 method <em>generateReport</em> as follows:</p>
+<pre class="r"><code>generateReport(gsa, number = 20, report.dir=&quot;./mam-rnaseq-egsea-report&quot;) </code></pre>
+<p>The EGSEA report generated for this dataset is available online at
+ (Figure 12).
+The HTML report is a convenient means of organising all of the results generated up to now, from the individual tables to the gene set level heatmap, pathway maps and summary level plots.
+It can easily be shared with collaborators to allow them to explore their results more fully.
+Interactive tables of results via the <strong>DT</strong> package (<a href="https://CRAN.R-project.org/package=DT" class="uri">https://CRAN.R-project.org/package=DT</a>) and summary plots from <strong>plotly</strong> (<a href="https://CRAN.R-project.org/package=plotly" class="uri">https://CRAN.R-project.org/package=plotly</a>) are integrated into the report using <strong>htmlwidgets</strong> (<a href="https://CRAN.R-project.org/package=htmlwidgets" class="uri">https://CRAN.R-project.org/package=htmlwidgets</a>) and can be added by setting <code>interactive = TRUE</code> in the command above. This option significantly increases both the run time and size of the final report due to the large number of gene sets in most collections.</p>
+<div class="figure">
+<img src="egsea_report_small.png" alt="The EGSEA HTML report main page. This summary page details the analysis parameters (methods combined and ranking options selected) and organises the gene set analysis results by contrast, with further separation by gene set collection. The final section on this page presents results from the comparative analysis. For each contrast and gene set collection analysed, links to tables of results and plots are provided." />
+<p class="caption">The EGSEA HTML report main page. This summary page details the analysis parameters (methods combined and ranking options selected) and organises the gene set analysis results by contrast, with further separation by gene set collection. The final section on this page presents results from the comparative analysis. For each contrast and gene set collection analysed, links to tables of results and plots are provided.</p>
+</div>
+<p>This example completes our overview of EGSEA’s gene set testing and plotting capabilities for RNA-seq data. Readers can refer to the EGSEA vignette or individual help pages for further details on each of the above methods and classes.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="analysis-of-microarray-data-with-egsea" class="section level2">
+<h2><span class="header-section-number">3.2</span> Analysis of microarray data with EGSEA</h2>
+<p>The second dataset analysed in this workflow comes from Lim <em>et al.</em> (2010) <span class="citation">(Lim et al. 2010)</span> and is the microarray equivalent of the RNA-seq data analysed above. Support for microarray data is a new feature in EGSEA, and in this example, we show an express route for analysis according to the steps shown in Figure 1, from selecting gene sets and building indexes, to configuring EGSEA, testing and reporting the results. First, the data must be appropriately preprocessed for an EGSEA analysis and to do this we make use of functions available in <strong>limma</strong>.</p>
+<div id="reading-preprocessing-and-normalisation-of-microarray-data" class="section level3">
+<h3><span class="header-section-number">3.2.1</span> Reading, preprocessing and normalisation of microarray data</h3>
+<p>To analyse this dataset, we begin by unzipping the files downloaded from <a href="http://bioinf.wehi.edu.au/EGSEA/arraydata.zip" class="uri">http://bioinf.wehi.edu.au/EGSEA/arraydata.zip</a> into the current working directory. Illumina BeadArray data can be read in directly using the <code>readIDAT</code> and <code>readBGX</code> functions from the <strong>illuminaio</strong> package <span class="citation">(Smith et al. 2013)</span>. However, a more convenient way is via the <code>read.idat</code> function in <strong>limma</strong> which uses these <strong>illuminaio</strong> functions and outputs the data as an <em>EListRaw</em> object for further processing.</p>
+<pre class="r"><code>library(limma)
+url = &quot;http://bioinf.wehi.edu.au/EGSEA/arraydata.zip&quot;
+utils::download.file(url, destfile=&quot;arraydata.zip&quot;, mode=&quot;wb&quot;)
+utils::unzip(&quot;arraydata.zip&quot;, exdir = &quot;.&quot;)
+targets = read.delim(&quot;targets.txt&quot;, header=TRUE, sep=&quot; &quot;)
+data = read.idat(as.character(targets$File), 
+                   bgxfile=&quot;GPL6887_MouseWG-6_V2_0_R0_11278593_A.bgx&quot;,
+                   annotation=c(&quot;Entrez_Gene_ID&quot;,&quot;Symbol&quot;, &quot;Chromosome&quot;))</code></pre>
+<pre><code>## Registered S3 method overwritten by &#39;openssl&#39;:
+##   method      from
+##   print.bytes Rcpp</code></pre>
+<pre><code>## Reading manifest file GPL6887_MouseWG-6_V2_0_R0_11278593_A.bgx ... Done
+##   4481850214_B_Grn.idat ... Done
+##   4481850214_C_Grn.idat ... Done
+##   4481850214_D_Grn.idat ... Done
+##   4481850214_F_Grn.idat ... Done
+##   4481850187_A_Grn.idat ... Done
+##   4481850187_B_Grn.idat ... Done
+##   4481850187_D_Grn.idat ... Done
+##   4481850187_E_Grn.idat ... Done
+##   4481850187_F_Grn.idat ... Done
+##   4466975058_A_Grn.idat ... Done
+##   4466975058_B_Grn.idat ... Done
+##   4466975058_C_Grn.idat ... Done
+##   4466975058_D_Grn.idat ... Done
+##   4466975058_E_Grn.idat ... Done
+##   4466975058_F_Grn.idat ... Done
+## Finished reading data.</code></pre>
+<pre class="r"><code>data$other$Detection = detectionPValues(data)
+data$targets = targets
+colnames(data) = targets$Sample</code></pre>
+<p>Next the <code>neqc</code> function in <strong>limma</strong> is used to carry out <em>normexp</em> background correction and quantile normalisation on the raw intensity values using negative control probes <span class="citation">(Shi, Oshlack, and Smyth 2010)</span>. This is followed by <span class="math inline">\(\log_2\)</span>-transformation of the normalised intensity values and removal of the control probes.</p>
+<pre class="r"><code>data = neqc(data)</code></pre>
+<p>We then filter out probes that are consistently non-expressed or lowly expressed throughout all samples as they are uninformative in downstream analysis. Our threshold for expression requires probes to have a detection <span class="math inline">\(p\)</span>-value of less than 0.05 in at least 5 samples (the number of samples within each group). We next remove genes without a valid Entrez ID and in cases where there are multiple probes targeting different isoforms of the same gene, select the probe with highest average expression as the representative one to use in the EGSEA analysis. This leaves 7,123 probes for further analysis.</p>
+<pre class="r"><code>table(targets$Celltype)</code></pre>
+<pre><code>## 
+## Basal    LP    ML 
+##     5     5     5</code></pre>
+<pre class="r"><code>keep.exprs = rowSums(data$other$Detection&lt;0.05)&gt;=5
+table(keep.exprs)</code></pre>
+<pre><code>## keep.exprs
+## FALSE  TRUE 
+## 23638 21643</code></pre>
+<pre class="r"><code>data = data[keep.exprs,]
+dim(data)</code></pre>
+<pre><code>## [1] 21643    15</code></pre>
+<pre class="r"><code>head(data$genes)</code></pre>
+<pre><code>##       Probe_Id Array_Address_Id Entrez_Gene_ID        Symbol Chromosome
+## 3 ILMN_1219601          2030280           &lt;NA&gt; C920011N12Rik           
+## 4 ILMN_1252621          1980164         101142 2700050P07Rik          6
+## 6 ILMN_3162407          6220026           &lt;NA&gt;         Zfp36           
+## 7 ILMN_2514723          2030072           &lt;NA&gt; 1110067B18Rik           
+## 8 ILMN_2692952          6040743         329831 4833436C18Rik          4
+## 9 ILMN_1257952          7160091           &lt;NA&gt; B930060K05Rik</code></pre>
+<pre class="r"><code>sum(is.na(data$genes$Entrez_Gene_ID))</code></pre>
+<pre><code>## [1] 11535</code></pre>
+<pre class="r"><code>data1 = data[!is.na(data$genes$Entrez_Gene_ID), ]
+dim(data1)</code></pre>
+<pre><code>## [1] 10108    15</code></pre>
+<pre class="r"><code>ord = order(lmFit(data1)$Amean, decreasing=TRUE)
+ids2keep = data1$genes$Array_Address_Id[ord][!duplicated(data1$genes$Entrez_Gene_ID[ord])]
+data1 = data1[match(ids2keep, data1$genes$Array_Address_Id),]
+dim(data1)</code></pre>
+<pre><code>## [1] 7123   15</code></pre>
+<pre class="r"><code>expr = data1$E
+group = as.factor(data1$targets$Celltype)
+probe.annot = data1$genes[, 2:4]
+head(probe.annot)</code></pre>
+<pre><code>##       Array_Address_Id Entrez_Gene_ID  Symbol
+## 39513          4120224          20102   Rps4x
+## 9062           2260576          22143  Tuba1b
+## 15308          5720202          12192 Zfp36l1
+## 39894          1470600          11947   Atp5b
+## 24709          2710477          20088   Rps24
+## 9872           1580471         228033  Atp5g3</code></pre>
+</div>
+<div id="setting-up-the-linear-model-for-egsea-testing" class="section level3">
+<h3><span class="header-section-number">3.2.2</span> Setting up the linear model for EGSEA testing</h3>
+<p>As before, we need to set up an appropriate linear model <span class="citation">(Smyth 2004)</span> and contrasts matrix to look for differences between the Basal and LP, Basal and ML and LP and ML populations. A batch term is included in the linear model to account for differences in expression that are attributable to the day the experiment was run.</p>
+<pre class="r"><code>head(data1$targets)</code></pre>
+<pre><code>##                      File Sample Celltype Time Experiment
+## 2-2 4481850214_B_Grn.idat    2-2       ML  At1          1
+## 3-3 4481850214_C_Grn.idat    3-3       LP  At1          1
+## 4-4 4481850214_D_Grn.idat    4-4    Basal  At1          1
+## 6-7 4481850214_F_Grn.idat    6-7       ML  At2          1
+## 7-8 4481850187_A_Grn.idat    7-8       LP  At2          1
+## 8-9 4481850187_B_Grn.idat    8-9    Basal  At2          1</code></pre>
+<pre class="r"><code>experiment = as.character(data1$targets$Experiment)
+design = model.matrix(~0 + group + experiment)
+colnames(design) = gsub(&quot;group&quot;, &quot;&quot;, colnames(design))
+design</code></pre>
+<pre><code>##    Basal LP ML experiment2
+## 1      0  0  1           0
+## 2      0  1  0           0
+## 3      1  0  0           0
+## 4      0  0  1           0
+## 5      0  1  0           0
+## 6      1  0  0           0
+## 7      0  0  1           0
+## 8      0  1  0           0
+## 9      1  0  0           0
+## 10     0  0  1           1
+## 11     0  1  0           1
+## 12     1  0  0           1
+## 13     1  0  0           1
+## 14     0  0  1           1
+## 15     0  1  0           1
+## attr(,&quot;assign&quot;)
+## [1] 1 1 1 2
+## attr(,&quot;contrasts&quot;)
+## attr(,&quot;contrasts&quot;)$group
+## [1] &quot;contr.treatment&quot;
+## 
+## attr(,&quot;contrasts&quot;)$experiment
+## [1] &quot;contr.treatment&quot;</code></pre>
+<pre class="r"><code>contr.matrix = makeContrasts(
+         BasalvsLP = Basal-LP,
+         BasalvsML = Basal-ML,
+         LPvsML = LP-ML,
+         levels = colnames(design))
+contr.matrix</code></pre>
+<pre><code>##              Contrasts
+## Levels        BasalvsLP BasalvsML LPvsML
+##   Basal               1         1      0
+##   LP                 -1         0      1
+##   ML                  0        -1     -1
+##   experiment2         0         0      0</code></pre>
+<div id="creating-gene-set-collection-indexes" class="section level4">
+<h4><span class="header-section-number">3.2.2.1</span> 1. Creating gene set collection indexes</h4>
+<p>We next extract the mouse c2, c5 and KEGG gene signature collections from the <strong>EGSEAdata</strong> package and build indexes based on Entrez IDs that link between the genes in each signature and the rows of our expression matrix.</p>
+<pre class="r"><code>library(EGSEA)
+library(EGSEAdata)
+gs.annots = buildIdx(entrezIDs=probe.annot[, 2], 
+             species=&quot;mouse&quot;, 
+             msigdb.gsets=c(&quot;c2&quot;, &quot;c5&quot;), go.part = TRUE)
+names(gs.annots)</code></pre>
+</div>
+<div id="configuring-and-3.-testing-with-egsea" class="section level4">
+<h4><span class="header-section-number">3.2.2.2</span> 2. Configuring and 3. Testing with EGSEA</h4>
+<p>The same 11 base methods used previously in the RNA-seq analysis were selected for the ensemble testing of the microarray data using the function <code>egsea.ma</code>. Gene sets were again prioritised by their median rank across the 11 methods.</p>
+<pre class="r"><code>baseMethods = egsea.base()[-2]
+baseMethods
+
+gsam = egsea.ma(expr=expr, group=group, 
+             probe.annot = probe.annot,
+             design = design,
+         contrasts=contr.matrix,  
+         gs.annots=gs.annots,
+         baseGSEAs=baseMethods, sort.by=&quot;med.rank&quot;,
+         num.threads = 8, report = FALSE)</code></pre>
+</div>
+<div id="reporting-egsea-results-1" class="section level4">
+<h4><span class="header-section-number">3.2.2.3</span> 4. Reporting EGSEA results</h4>
+<p>An HTML report that includes each of the gene set level and summary level plots shown individually for the RNA-seq analysis was then created using the <code>generateReport</code> function.
+We complete our analysis by displaying the top ranked sets for the c2 collection from a comparative analysis across all contrasts.</p>
+<pre class="r"><code>generateReport(gsam, number = 20, report.dir=&quot;./mam-ma-egsea-report&quot;)</code></pre>
+<pre class="r"><code>topSets(gsam, gs.label=&quot;c2&quot;, contrast=&quot;comparison&quot;, names.only=TRUE, number=5)</code></pre>
+<p>The EGSEA report generated for this dataset is available online at <a href="http://bioinf.wehi.edu.au/EGSEA/mam-ma-egsea-report/index.html" class="uri">http://bioinf.wehi.edu.au/EGSEA/mam-ma-egsea-report/index.html</a>. Reanalysis of this data retrieves similar c2 gene sets to those identified by analysis of RNA-seq data. These included the <code>LIM</code> gene signatures (sets 1, 2 and 3) as well as those derived from populations with similar cellular origin (set 4).</p>
+</div>
+</div>
+</div>
+</div>
+<div id="discussion" class="section level1">
+<h1><span class="header-section-number">4</span> Discussion</h1>
+<p>In this workflow article, we have demonstrated how to use the EGSEA package to combine the results obtained from different gene signature databases across multiple GSE methods to find an ensemble solution.
+A key benefit of an EGSEA analysis is the detailed and comprehensive HTML report that can be shared with collaborators to help them interpret their data. This report includes tables prioritising gene signatures according to the user specified analysis options, and both gene set specific and summary graphics, each of which can be generated individually using specific R commands.
+The approach taken by EGSEA is facilitated by the diverse range of gene set testing algorithms and plotting capabilities available within Bioconductor.
+EGSEA has been tailored to suit a <strong>limma</strong>-based differential expression analysis which continues to be a very popular and flexible platform for transcriptomic data.
+Analysts who choose an individual GSE algorithm to prioritise their results rather than an ensemble solution can still benefit from EGSEA’s comprehensive reporting capability.</p>
+</div>
+<div id="software-and-code-used" class="section level1">
+<h1><span class="header-section-number">5</span> Software and code used</h1>
+<p>Code to perform this analysis can be found in the <strong>EGSEA123</strong> workflow package available from Bioconductor (<a href="https://www.bioconductor.org/help/workflows/EGSEA123" class="uri">https://www.bioconductor.org/help/workflows/EGSEA123</a>).</p>
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>## R version 3.6.0 (2019-04-26)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Ubuntu 18.04.2 LTS
+## 
+## Matrix products: default
+## BLAS:   /home/biocbuild/bbs-3.9-bioc/R/lib/libRblas.so
+## LAPACK: /home/biocbuild/bbs-3.9-bioc/R/lib/libRlapack.so
+## 
+## locale:
+##  [1] LC_CTYPE=en_US.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=en_US.UTF-8        LC_COLLATE=C              
+##  [5] LC_MONETARY=en_US.UTF-8    LC_MESSAGES=en_US.UTF-8   
+##  [7] LC_PAPER=en_US.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=en_US.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+##  [1] grid      stats4    parallel  stats     graphics  grDevices utils    
+##  [8] datasets  methods   base     
+## 
+## other attached packages:
+##  [1] Rgraphviz_2.28.0     org.Mm.eg.db_3.8.2   EGSEA_1.12.0        
+##  [4] pathview_1.24.0      org.Hs.eg.db_3.8.2   topGO_2.36.0        
+##  [7] SparseM_1.77         GO.db_3.8.2          graph_1.62.0        
+## [10] AnnotationDbi_1.46.0 IRanges_2.18.0       S4Vectors_0.22.0    
+## [13] gage_2.34.0          Biobase_2.44.0       BiocGenerics_0.30.0 
+## [16] EGSEAdata_1.11.0     edgeR_3.26.0         limma_3.40.0        
+## [19] BiocStyle_2.12.0    
+## 
+## loaded via a namespace (and not attached):
+##   [1] colorspace_1.4-1         hwriter_1.3.2           
+##   [3] R2HTML_2.3.2             XVector_0.24.0          
+##   [5] base64_2.0               KEGGdzPathwaysGEO_1.21.0
+##   [7] DT_0.5                   bit64_0.9-7             
+##   [9] Glimma_1.12.0            KEGG.db_3.2.3           
+##  [11] splines_3.6.0            codetools_0.2-16        
+##  [13] geneplotter_1.62.0       knitr_1.22              
+##  [15] shinythemes_1.1.2        jsonlite_1.6            
+##  [17] annotate_1.62.0          png_0.1-7               
+##  [19] globaltest_5.38.0        shiny_1.3.2             
+##  [21] BiocManager_1.30.4       compiler_3.6.0          
+##  [23] httr_1.4.0               Matrix_1.2-17           
+##  [25] assertthat_0.2.1         lazyeval_0.2.2          
+##  [27] org.Rn.eg.db_3.8.2       later_0.8.0             
+##  [29] htmltools_0.3.6          tools_3.6.0             
+##  [31] gtable_0.3.0             glue_1.3.1              
+##  [33] dplyr_0.8.0.1            doRNG_1.7.1             
+##  [35] Rcpp_1.0.1               Biostrings_2.52.0       
+##  [37] gdata_2.18.0             nlme_3.1-139            
+##  [39] iterators_1.0.10         gbRd_0.4-11             
+##  [41] xfun_0.6                 stringr_1.4.0           
+##  [43] mime_0.6                 rngtools_1.3.1.1        
+##  [45] gtools_3.8.1             XML_3.98-1.19           
+##  [47] zlibbioc_1.30.0          scales_1.0.0            
+##  [49] promises_1.0.1           KEGGgraph_1.44.0        
+##  [51] hgu133a.db_3.2.3         RColorBrewer_1.1-2      
+##  [53] yaml_2.2.0               memoise_1.1.0           
+##  [55] ggplot2_3.1.1            pkgmaker_0.27           
+##  [57] stringi_1.4.3            RSQLite_2.1.1           
+##  [59] GSVA_1.32.0              foreach_1.4.4           
+##  [61] caTools_1.17.1.2         bibtex_0.4.2            
+##  [63] safe_3.24.0              GSA_1.03.1              
+##  [65] Rdpack_0.11-0            rlang_0.3.4             
+##  [67] pkgconfig_2.0.2          matrixStats_0.54.0      
+##  [69] bitops_1.0-6             evaluate_0.13           
+##  [71] lattice_0.20-38          purrr_0.3.2             
+##  [73] labeling_0.3             htmlwidgets_1.3         
+##  [75] HTMLUtils_0.1.7          bit_1.1-14              
+##  [77] tidyselect_0.2.5         GSEABase_1.46.0         
+##  [79] plyr_1.8.4               magrittr_1.5            
+##  [81] bookdown_0.9             R6_2.4.0                
+##  [83] gplots_3.0.1.1           DBI_1.0.0               
+##  [85] pillar_1.3.1             withr_2.1.2             
+##  [87] survival_2.44-1.1        KEGGREST_1.24.0         
+##  [89] RCurl_1.95-4.12          tibble_2.1.1            
+##  [91] crayon_1.3.4             KernSmooth_2.23-15      
+##  [93] plotly_4.9.0             rmarkdown_1.12          
+##  [95] locfit_1.5-9.1           data.table_1.12.2       
+##  [97] blob_1.1.1               metap_1.1               
+##  [99] digest_0.6.18            xtable_1.8-4            
+## [101] tidyr_0.8.3              httpuv_1.5.1            
+## [103] illuminaio_0.26.0        openssl_1.3             
+## [105] munsell_0.5.0            viridisLite_0.3.0       
+## [107] registry_0.5-1           hgu133plus2.db_3.2.3    
+## [109] askpass_1.1              PADOG_1.26.0</code></pre>
+</div>
+<div id="competing-interests" class="section level1">
+<h1><span class="header-section-number">6</span> Competing interests</h1>
+<p>MA and MN are employees of CSL Limited. The authors declare that they have no competing interests.</p>
+</div>
+<div id="grant-information" class="section level1">
+<h1><span class="header-section-number">7</span> Grant information</h1>
+<p>This work was funded by a National Health and Medical Research Council (NHMRC) Fellowship to MER (GNT1104924), Victorian State Government Operational Infrastructure Support and Australian Government NHMRC IRIISS.</p>
+</div>
+<div id="acknowledgements" class="section level1">
+<h1><span class="header-section-number">8</span> Acknowledgements</h1>
+<p>This material was first trialled in a workshop at the BioC 2017 conference at the Dana Farber Cancer Institute (Boston, MA) on 28 July 2017. We thank the participants at this workshop for their feedback. The authors also thank Dr Alexandra Garnham (The Walter and Eliza Hall Institute of Medical Research) for feedback on this workflow article.</p>
+</div>
+<div id="references" class="section level1 unnumbered">
+<h1>References</h1>
+<div id="refs" class="references">
+<div id="ref-topGO">
+<p>Alexa, A., and J. Rahnenfuhrer. 2016. <em>TopGO: Enrichment Analysis for Gene Ontology</em>.</p>
+</div>
+<div id="ref-EGSEA:2016">
+<p>Alhamdoosh, M., M. Ng, and M. E. Ritchie. 2017. <em>EGSEA: Ensemble of Gene Set Enrichment Analyses</em>. <a href="https://bioconductor.org/packages/devel/bioc/html/EGSEA.html" class="uri">https://bioconductor.org/packages/devel/bioc/html/EGSEA.html</a>.</p>
+</div>
+<div id="ref-Alhamdoosh:Bioinformatics:2016">
+<p>Alhamdoosh, M., M. Ng, N. J. Wilson, J. M. Sheridan, H. Huynh, M. J. Wilson, and M. E. Ritchie. 2017. “Combining Multiple Tools Outperforms Individual Methods in Gene Set Enrichment Analyses.” <em>Bioinformatics</em> 33 (3):414. <a href="https://doi.org/10.1093/bioinformatics/btw623" class="uri">https://doi.org/10.1093/bioinformatics/btw623</a>.</p>
+</div>
+<div id="ref-Araki2012">
+<p>Araki, H., C. Knapp, P. Tsai, and C. Print. 2012. “GeneSetDB: A comprehensive meta-database, statistical and visualisation framework for gene set analysis.” <em>FEBS Open Bio</em> 2:76–82.</p>
+</div>
+<div id="ref-Barbie2009">
+<p>Barbie, D. A., P. Tamayo, J. S. Boehm, S. Y. Kim, S. E. Moody, I. F. Dunn, A. C. Schinzel, et al. 2009. “Systematic RNA interference reveals that oncogenic KRAS-driven cancers require TBK1.” <em>Nature</em> 462 (7269):108–12.</p>
+</div>
+<div id="ref-Barry2005">
+<p>Barry, W. T., A. B. Nobel, and F. A. Wright. 2005. “Significance analysis of functional categories in gene expression studies: a structured permutation approach.” <em>Bioinformatics</em> 21 (9):1943–9.</p>
+</div>
+<div id="ref-Musmusculus:2015">
+<p>Bioconductor Core Team. 2015. <em>Mus.musculus: Annotation package for the Mus.musculus object</em>. <a href="	http://bioconductor.org/packages/Mus.musculus/" class="uri">	http://bioconductor.org/packages/Mus.musculus/</a>.</p>
+</div>
+<div id="ref-pathwayCommons2011">
+<p>Cerami, E. G., B. E. Gross, E. Demir, I. Rodchenkov, O. Babur, N. Anwar, N. Schultz, G. D. Bader, and C. Sander. 2011. “Pathway Commons, a Web Resource for Biological Pathway Data.” <em>Nucleic Acids Research</em> 39 (Database issue):D685–D690.</p>
+</div>
+<div id="ref-metap2017">
+<p>Dewey, M. 2017. <em>metap: Meta-Analysis of Significance Values</em>.</p>
+</div>
+<div id="ref-Goeman2004">
+<p>Goeman, J. J., S. A. van de Geer, F. de Kort, and H. C. van Houwelingen. 2004. “A global test for groups of genes: testing association with a clinical outcome.” <em>Bioinformatics</em> 20 (1):93–99.</p>
+</div>
+<div id="ref-Hanzelmann2013">
+<p>Hänzelmann, S., R. Castelo, and J. Guinney. 2013. “GSVA: gene set variation analysis for microarray and RNA-seq data.” <em>BMC Bioinformatics</em> 14:7.</p>
+</div>
+<div id="ref-Huber:NatureMethods:2015">
+<p>Huber, W., V. J. Carey, R. Gentleman, S. Anders, M. Carlson, B. S. Carvalho, H. C. Bravo, et al. 2015. “Orchestrating High-Throughput Genomic Analysis with Bioconductor.” <em>Nature Methods</em> 12 (2):115–21. <a href="http://www.nature.com/nmeth/journal/v12/n2/full/nmeth.3252.html" class="uri">http://www.nature.com/nmeth/journal/v12/n2/full/nmeth.3252.html</a>.</p>
+</div>
+<div id="ref-Kanehisa2000">
+<p>Kanehisa, M., and S. Goto. 2000. “KEGG: kyoto encyclopedia of genes and genomes.” <em>Nucleic Acids Research</em> 28 (1):27–30.</p>
+</div>
+<div id="ref-Law:F1000Research:2016">
+<p>Law, C. W., M. Alhamdoosh, S. Su, G. K. Smyth, and M. E. Ritchie. 2016. “RNA-seq analysis is easy as 1-2-3 with limma, Glimma and edgeR.” <em>F1000Research</em> 5:1408. <a href="https://doi.org/10.12688/f1000research.9005.1" class="uri">https://doi.org/10.12688/f1000research.9005.1</a>.</p>
+</div>
+<div id="ref-Law:GenomeBiol:2014">
+<p>Law, C. W., Y. Chen, W. Shi, and G. K. Smyth. 2014. “Voom: Precision Weights Unlock Linear Model Analysis Tools for RNA-seq Read Counts.” <em>Genome Biology</em> 15 (2):R29.</p>
+</div>
+<div id="ref-Lee2008">
+<p>Lee, E., H. Y. Chuang, J. W. Kim, T. Ideker, and D. Lee. 2008. “Inferring pathway activity toward precise disease classification.” <em>PLoS Computational Biology</em> 4 (11):e1000217.</p>
+</div>
+<div id="ref-Liao:NAR:2013">
+<p>Liao, Y., G. K. Smyth, and W. Shi. 2013. “The Subread Aligner: Fast, Accurate and Scalable Read Mapping by Seed-and-Vote.” <em>Nucleic Acids Research</em> 41 (10):e108.</p>
+</div>
+<div id="ref-Liao:Bioinformatics:2014">
+<p>———. 2014. “featureCounts: an Efficient General-Purpose Program for Assigning Sequence Reads to Genomic Features.” <em>Bioinformatics</em> 30 (7):923–30.</p>
+</div>
+<div id="ref-Lim:BreastCancerRes:2010">
+<p>Lim, E., D. Wu, B. Pal, T. Bouras, M. L. Asselin-Labat, F. Vaillant, H. Yagita, G. J. Lindeman, G. K. Smyth, and J. E. Visvader. 2010. “Transcriptome analyses of mouse and human mammary cell subpopulations reveal multiple conserved genes and pathways.” <em>Breast Cancer Research</em> 12 (2):R21.</p>
+</div>
+<div id="ref-pathview">
+<p>Luo, W., and C. Brouwer. 2013. “Pathview: An R/Bioconductor Package for Pathway-Based Data Integration and Visualization.” <em>Bioinformatics</em> 29 (14):1830–1. <a href="https://doi.org/10.1093/bioinformatics/btt285" class="uri">https://doi.org/10.1093/bioinformatics/btt285</a>.</p>
+</div>
+<div id="ref-Luo2009">
+<p>Luo, W., M. S. Friedman, K. Shedden, K. D. Hankenson, and P. J. Woolf. 2009. “GAGE: generally applicable gene set enrichment for pathway analysis.” <em>BMC Bioinformatics</em> 10:161.</p>
+</div>
+<div id="ref-R">
+<p>R Core Team. 2017. <em>R: A Language and Environment for Statistical Computing</em>. Vienna, Austria: R Foundation for Statistical Computing. <a href="https://www.R-project.org/" class="uri">https://www.R-project.org/</a>.</p>
+</div>
+<div id="ref-Ritchie:NAR:2015">
+<p>Ritchie, M. E., B. Phipson, D. Wu, Y. Hu, C. W. Law, W. Shi, and G. K. Smyth. 2015. “limma Powers Differential Expression Analyses for RNA-Sequencing and Microarray Studies.” <em>Nucleic Acids Research</em> 43 (7):e47.</p>
+</div>
+<div id="ref-Robinson:Bioinformatics:2010">
+<p>Robinson, M. D., D. J. McCarthy, and G. K. Smyth. 2010. “edgeR: A Bioconductor Package for Differential Expression Analysis of Digital Gene Expression Data.” <em>Bioinformatics</em> 26 (1):139–40.</p>
+</div>
+<div id="ref-RobinsonOshlack:GenomeBiol:2010">
+<p>Robinson, M. D., and A. Oshlack. 2010. “A Scaling Normalization Method for Differential Expression Analysis of RNA-seq data.” <em>Genome Biology</em> 11 (3):R25.</p>
+</div>
+<div id="ref-Sheridan:BMCCancer:2015">
+<p>Sheridan, J. M., M. E. Ritchie, S. A. Best, K. Jiang, T. J. Beck, F. Vaillant, K. Liu, et al. 2015. “A pooled shRNA screen for regulators of primary mammary stem and progenitor cells identifies roles for Asap1 and Prox1.” <em>BMC Cancer</em> 15 (1). BioMed Central:221.</p>
+</div>
+<div id="ref-shi2010neqc">
+<p>Shi, W., A. Oshlack, and G.K. Smyth. 2010. “Optimizing the Noise Versus Bias Trade-Off for Illumina Whole Genome Expression BeadChips.” <em>Nucleic Acids Research</em> 38 (22). Oxford University Press:e204.</p>
+</div>
+<div id="ref-Smith:F1000Research:2013">
+<p>Smith, M. L., K. A. Baggerly, H. Bengtsson, M. E. Ritchie, and K. D. Hansen. 2013. “illuminaio: an Open Source Idat Parsing Tool.” <em>F1000Research</em> 2:264. <a href="http://f1000research.com/articles/2-264/" class="uri">http://f1000research.com/articles/2-264/</a>.</p>
+</div>
+<div id="ref-Smyth:SAGMB:2004">
+<p>Smyth, G. K. 2004. “Linear Models and Empirical Bayes Methods for Assessing Differential Expression in Microarray Experiments.” <em>Stat Appl Genet Mol Biol</em> 3 (1):Article 3.</p>
+</div>
+<div id="ref-Su:Bioinformatics:2017">
+<p>Su, S., C. W. Law, C. Ah-Cann, M. L. Asselin-Labat, M. E. Blewitt, and M. E. Ritchie. 2017. “Glimma: Interactive Graphics for Gene Expression Analysis.” <em>Bioinformatics</em> 33 (13):2050–2. <a href="https://doi.org/10.1093/bioinformatics/btx094" class="uri">https://doi.org/10.1093/bioinformatics/btx094</a>.</p>
+</div>
+<div id="ref-Subramanian2005">
+<p>Subramanian, A., P. Tamayo, V. K. Mootha, S. Mukherjee, B. L. Ebert, M. A. Gillette, A. Paulovich, et al. 2005. “Gene Set Enrichment Analysis: A Knowledge-Based Approach for Interpreting Genome-Wide Expression Profiles.” <em>Proc Natl Acad Sci U S A</em> 102 (43):15545–50.</p>
+</div>
+<div id="ref-Tarca2012">
+<p>Tarca, A. L., S. Draghici, G. Bhatti, and R. Romero. 2012. “Down-weighting overlapping genes improves gene set analysis.” <em>BMC Bioinformatics</em> 13:136.</p>
+</div>
+<div id="ref-Tavazoie1999">
+<p>Tavazoie, S., J. D. Hughes, M. J. Campbell, R. J. Cho, and G. M. Church. 1999. “Systematic determination of genetic network architecture.” <em>Nature Genetics</em> 22 (3):281–5.</p>
+</div>
+<div id="ref-KEGGREST2017">
+<p>Tenenbaum, D. 2017. <em>KEGGREST: Client-Side Rest Access to Kegg</em>.</p>
+</div>
+<div id="ref-Tomfohr2005">
+<p>Tomfohr, J., J. Lu, and T. B. Kepler. 2005. “Pathway level analysis of gene expression using singular value decomposition.” <em>BMC Bioinformatics</em> 6:225.</p>
+</div>
+<div id="ref-Wilkinson1954">
+<p>Wilkinson, B. 1954. “A Statistical Consideration in Psychological Research.” <em>Psychological Bulletin</em> 48:156–8.</p>
+</div>
+<div id="ref-Wu2010">
+<p>Wu, D., E. Lim, F. Vaillant, M. L. Asselin-Labat, J. E. Visvader, and G. K. Smyth. 2010. “ROAST: rotation gene set tests for complex microarray experiments.” <em>Bioinformatics</em> 26 (17):2176–82.</p>
+</div>
+<div id="ref-Wu2012">
+<p>Wu, D., and G. K. Smyth. 2012. “Camera: a competitive gene set test accounting for inter-gene correlation.” <em>Nucleic Acids Research</em> 40 (17):e133.</p>
+</div>
+<div id="ref-EncodeHub2017">
+<p>Ziemann, M., A. Kaspi, H. Rafehi, and A. El-Osta. 2017. <em>The ENCODE Gene Set Hub</em>. <a href="https://doi.org/10.13140/RG.2.2.34302.59208" class="uri">https://doi.org/10.13140/RG.2.2.34302.59208</a>.</p>
+</div>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": {
+      styles: {
+        ".MathJax_Display": {
+           "text-align": "center",
+           padding: "0px 150px 0px 65px",
+           margin: "0px 0px 0.5em"
+        },
+      }
+    }
+  });
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

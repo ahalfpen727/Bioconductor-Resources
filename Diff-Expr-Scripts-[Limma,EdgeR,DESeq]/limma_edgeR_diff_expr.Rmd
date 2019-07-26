@@ -1,0 +1,199 @@
+---
+   title: Permutation
+author: Jeff Leek
+output:
+   rmarkdown::html_document:
+   toc: true
+vignette: >  
+   %\VignetteIndexEntry{Permutation}
+%\VignetteEngine{knitr::rmarkdown}
+\usepackage[utf8]{inputenc}
+---
+   
+```{r library-load, message=FALSE, warning=FALSE}
+# GSE103403
+source("http://bioconductor.org/biocLite.R")
+biocLite(c("gage","gageData", "DESeq2",
+           "DESeq","SRAdb","DLBCL", "BioNet",
+           "Stringdb", "ALL", "outliers",
+           "nortest", "pathview", "qvalue",
+           "GEOquery","ArrayExpress"))
+
+biocLite(c("maPooling"))
+
+biocLite(c("GEOquery", "BioNet", "DLBCL", "graphite","edgeR", "DESeq", "DOSE", "GOstats", "gage", "gageData", "pathview", "keggorthology", "STRINGdb", "topGO", "clusterProfiler", "org.Hs.eg.db", "org.Dm.eg.db", "ReactomePA", "Path2PPI", "KEGG.db", "KEGGgraph", "graphite", "GSEABase","RedeR", "edgeR", "DESeq", "qvalue", "outliers", "nortest", "ALL"))
+
+library(graphite)
+library(ArrayExpress);library(GOstats)
+library(DESeq2);library(edgeR)
+library(tidyverse);library(broom);library(mnormt)
+library(ggplot2); library(gplots); library(emmeans)
+library(stats4);library(stats); library(car)
+library(limma);library(DESeq2);library(edgeR)
+library(nlme);library(MASS);library(nortest)
+library(lmtest); library(glmnet);library(lme4)
+library(cummeRbund);library(multtest); library(reshape2)
+library(outliers);library(nortest);library(RColorBrewer)
+library(pastecs);library(psych);library(RColorBrewer)
+library(knitr);library(VennDiagram);library(gridExtra)
+
+```
+
+## RNA-Seq data from the Center for Personalized Cancer Therapy
+> In an effort to identify biomarkers of disease the genomics core has begun performing comparitive RNA-Seq analyses. This project represents an effort to differentiate benign prostate hyperplasia from prostate cancer and identify causitive features from gene expression data
+
+```{r import-gene-expr-data, message=FALSE, warning=FALSE}
+knitr::opts_chunk$set(comment = NA, message = FALSE, warnings = FALSE)
+cuff.hg38 <- readCufflinks(dir='/home/drew/umb_triley/urine1/cuffdiff_results_hg38_default/LUTS-over-CTRL/',genome="hg38",gtfFile='/home/drew/umb_triley/Reference-Genomes-and-Gene-Sets/Reference-Genomes/Human/UCSC_hg38/genes.gtf', rebuild=F)
+cuff<-cuff.hg38
+replicates.info<-cummeRbund::replicates(cuff)
+replicates.info
+samples<-replicates.info$rep_name
+groups<-replicates.info$sample_name
+samples
+groups
+
+conditions<-factor(groups)
+conditions
+under=conditions[1]
+over=conditions[c((length(groups)/2)+1)]
+over;under
+
+# design matrix
+design <- model.matrix(~0 + groups, data=conditions)
+colnames(design) <- levels(conditions)
+row.names(design) <- samples
+design
+contr.matrix <- makeContrasts(LUTS=c(1,-1),
+                              CTRL=c(-1,1),
+                              levels = colnames(design))
+contr.matrix
+g.cnt.matrix<-repCountMatrix(cummeRbund::genes(cuff))
+under.group<-grep(pattern=under, colnames(g.cnt.matrix))
+over.group<-grep(pattern=over, colnames(g.cnt.matrix))
+
+
+```
+
+
+
+```{r linear-models}
+
+dgel<- DGEList(counts=g.cnt.matrix, group=factor(groups))
+dge.norm <- calcNormFactors(dgel)
+plotMDS(dge.norm, method="bcv", col=as.numeric(dge.norm$samples$group))
+log2.cpm <- voom(dge.norm,design,plot=TRUE)
+log2.cpm
+fit.lm <- lmFit(log2.cpm,design)
+summary(fit.lm)
+fit.bayes <- eBayes(fit.lm)
+f.bayes.dt <- decideTests(fit.bayes)
+summary(f.bayes.dt)
+tfit <- treat(fit.bayes, lfc = 2)
+limma.res=topTable(tfit,coef=2,n=Inf,sort="p")
+limma.res.sig<-subset(limma.res, (limma.res$adj.P.Val < 0.01) & (limma.res$logFC > 2))
+plotMD(tfit, column = 1, status = f.bayes.dt[, 1], main = colnames(tfit)[1],
+       xlim = c(-8, 13))
+plotMD(tfit, column = 2, status = f.bayes.dt[, 2], main = colnames(tfit)[2],
+       xlim = c(-8, 13))
+de.common <- which(f.bayes.dt[, 1] != 0 & f.bayes.dt[, 2] != 0)
+length(de.common)
+#head(tfit$genes$SYMBOL[de.common], n = 20)
+vennDiagram(f.bayes.dt[, 1:2], circle.col = c("orange", "purple"),main=paste("Venn Diagram of the overlapping gene expression between", over, "and", under))
+
+lm<-lmFit(g.cnt.matrix,design)
+fit.cnt <- eBayes(lmFit(g.cnt.matrix,design))
+ebayes.dt <- decideTests(fit.cnt)
+summary(ebayes.dt)
+tfit <- treat(fit.cnt, lfc = 1)
+limma.res.cnt=topTable(fit.cnt,coef=2,n=Inf,sort="p")
+limma.res.cnt.sig<-subset(limma.res.cnt, (limma.res.cnt$adj.P.Val < 0.01) & (limma.res.cnt$logFC > 2))
+
+# to account for sufficient effect size a minimal log-fold-change can be chosen
+# isntead of using `eBayes`. Testing relative to a threshold
+# dispersion
+dgel<- DGEList(counts=g.f.cnt.ma, group=factor(groups))
+dge.norm <- calcNormFactors(dgel)
+log2.cpm <- voom(dge.norm,design,plot=TRUE)
+fit.lm <- lmFit(log2.cpm,design)
+fit.bayes <- eBayes(fit.lm)
+f.bayes.dt <- decideTests(fit.bayes)
+dgeObj.disp <- estimateDisp(dgeObj,design)
+plotBCV(dgeObj.disp)
+# Fit the linear model
+fit <- glmFit(dgeObj.disp, design)
+glm.lrt <- glmLRT(fit, contrast=contr.matrix) 
+topTags(glm.lrt)
+de2 <- decideTestsDGE(glm.lrt, adjust.method="BH", p.value = 0.05)
+de2tags12 <- rownames(de2)[as.logical(de2)]
+plotSmear(glm.lrt, design)
+# overdispersion
+dispers<-deviance(glm.lrt)/df.residual(glm.lrt)
+over.disp<-dispers[which(dispers > 1)] 
+length(over.disp)
+not.over.disp<-dispers[which(dispers < 1)] 
+length(not.over.disp)
+# Fix overdisperion
+q.fit <- glmFit(dgeObj.disp, design, family="quasipoisson")
+head(coef(q.fit))
+# Conduct likelihood ratio tests for luts vs ctrl and show the top genes:
+lrt.qfit <- glmLRT(q.fit, coef=2, contrast=contr.matrix) 
+sig.qfit.genes<-subset(lrt.qfit$table,(PValue < 0.01))
+
+dispersion0 <- estimateDisp(dgel, design)
+plotBCV(dispersion0)
+glmfit <- glmFit(dispersion0, design)
+lrt <- glmLRT(glmfit, contrast=contr.matrix)
+topTags(lrt)
+sig.lrt.genes<-subset(lrt$table,(PValue < 0.05))
+lrt.de2 <- decideTestsDGE(lrt, adjust.method="BH", p.value = 0.05)
+lrt.de2tags12 <- rownames(lrt.de2)[as.logical(lrt.de2)]
+plotSmear(lrt, de.tags=lrt.de2tags12)
+tp <- topTags(lrt, n=Inf)
+sum(tp$table$PValue < 0.05)
+DE <- tp$table[tp$table$PValue < 0.05,]
+plotSmear(lrt, de.tags=DE, cex = 0.4)
+```
+
+```{r limma-voom}
+keep.cpm <- rowSums(cpm(g.cnt.matrix)>2) >= (length(groups)/2)
+g.f.cnt.ma <- g.cnt.matrix[keep.cpm,]
+dgeObj <- DGEList(counts=g.f.cnt.ma, group=groups)
+e.disp<-estimateDisp(dgeObj, design)
+exactTst <- exactTest(e.disp)
+exactTst$table
+o.sig <- subset(exactTst$table, (PValue < 0.05))
+o.sig
+z <- estimateGLMTrendedDisp(g.f.cnt.ma,design)
+fite <- glmFit(g.f.cnt.ma,design,dispersion=z)
+lrt <- glmLRT(fite, contrast=contr.matrix)
+dt <- decideTests(lrt)
+o.sig <- subset(lrt$table, (PValue < 0.05))
+o.sig
+sum(p.adjust(lrt$table$PValue,method="BH")<0.01)
+topTags(exactTst)
+
+# voom - ranked by lods
+y <- voom(counts2,design,plot=FALSE)
+fit <- lmFit(y,design)
+fit <- eBayes(fit)
+dt <- decideTests(fit)
+summary(dt)
+o <- order(fit$lods[,2], decreasing=TRUE)
+sum(p.adjust(fit$p.value[,2],method="BH")<0.1)
+# limma trend - ranked by lods
+y <- cpm(counts2,log=TRUE,prior.count=1)
+fit <- lmFit(y,design,weights=NULL)
+fit <- eBayes(fit,trend=TRUE)
+dt <- decideTests(fit)
+summary(dt)
+# limma notrend - ranked by lods
+fit <- eBayes(fit,trend=FALSE)
+o <- order(fit$lods[,2], decreasing=TRUE)
+# t-test
+t.ord <- fit$coef[,2]/fit$stdev.unscaled[,2]/fit$sigma
+p.ord <- pt(abs(t.ord),df=4,lower.tail=FALSE)*2
+fdr.ord <- p.adjust(p.ord,method="BH")
+o <- order(p.ord)
+sum(fdr.ord<0.1)
+install.packages('xaringan')

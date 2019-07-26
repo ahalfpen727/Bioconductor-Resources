@@ -1,0 +1,49 @@
+\documentclass{article}
+\usepackage{geometry}
+\usepackage{fullpage}
+\usepackage{Sweave}
+\begin{document}
+\input{drosophila-analysis-concordance}
+
+
+\begin{Schunk}
+\begin{Sinput}
+> library(igraph); library(Hmisc); library(cummeRbund)
+> library(ellipse); library(limma); library(edgeR)
+> library(pvclust); library(gplots); library(Hmisc)
+> library(readxl); library(knitr); library(outliers)
+> 
+\end{Sinput}
+\end{Schunk}
+
+
+\author{Andrew Judell-Halfpenny}
+\title{Drosophila Analysis}
+\date{August 2018}
+\maketitle
+\begin{center}
+    \large{\textbf{A genetic, genomic, and computational resource for exploring drosophila neural circuit funtion}}\\
+\end{center}
+\begin{flushleft}
+\textbf{\large{Comparison of Rh8_Rh5 to Rh8_Rh6}}\\
+\end{flushleft}
+
+%\begin{center}
+%    \large{\textbf{Question 1}}\\
+%\end{center}
+
+Comparison of Rh5 and Rh6 phenotypes of the Rh8 photorecetpot
+\begin{Schunk}
+\begin{Sinput}
+> drdir<-dirname("/media/drew/2f1bee59-e3b3-4af3-9055-b88f7a7084e9/umb_triley/drosophila/")
+> files<-setwd(drdir)
+> #files<-dir("/media/drew/2f1bee59-e3b3-4af3-9055-b88f7a7084e9/umb_triley/drosophila/")
+> files
+\end{Sinput}
+\begin{Soutput}
+[1] "/home/drew"
+\end{Soutput}
+\begin{Sinput}
+> gse116969<-grep(pattern="Rister_",files, ignore.case = T)
+> gse116969.xlsx<-files[gse116969]
+> gse116969.xlsx<-read_excel(gse116969.xlsx)
