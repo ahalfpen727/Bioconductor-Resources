@@ -3,7 +3,17 @@ a repository of references materials, vignettes, scripts, tutorials for the bioc
 
 # Bioconductor Cheatsheet
 Also useful:
-[PH525x Statistics for Genomics Book](http://http://genomicsclass.github.io/book/)
+[Bioinformatics Training at HBC](https://wiki.harvard.edu/confluence/display/hbctraining/Bioinformatics+Training+at+HBC)
+,
+[Bioinformatics Workshops at Harvard Chan Bioinformatics Core](https://wiki.harvard.edu/confluence/display/hbctraining/Workshops+and+courses)
+,
+[Bioinformatics Resources at Harvard Chan Bioinformatics Core](https://wiki.harvard.edu/confluence/display/hbctraining/Resources)
+,
+[HarvardX Biomedical Data Science Open Online Training](http://http://rafalab.github.io/pages/harvardx.html)
+,
+[PH525x Series Textbook: Statistics for Biomedical/Genomic Data Science](http://http://genomicsclass.github.io/book/)
+,
+[PH525x Series Course: Statistics for Genomic Data Science](https://github.com/genomicsclass/)
 ,
 [Kasper Daniel Hansen's Bioconductor class notes](http://kasperdanielhansen.github.io/genbioconductor/)
 , and
