@@ -1,1 +1,0 @@
-RNA extracted from urine sediment was analyzed via RNAseq on an Illumina HiSeq
