@@ -1,0 +1,272 @@
+This file gives the answer to the document "Practical statistical analysis of
+RNA-Seq data" using the **R** packages edgeR (version 3.6.8), limma (version
+3.20.7), mixOmics (version 5.0-1), RColorBrewer(version 1.0-5) and HTSFilter
+(version 1.6.0).
+
+```{r loadLib}
+library(edgeR)
+library(limma)
+library(RColorBrewer)
+library(mixOmics)
+library(HTSFilter)
+```
+
+# 4.0. Starting from count table
+
+Properly set the directory from which files are imported:
+
+```{r directory}
+directory <- "RNAseq_data/count_table_files/"
+dir(directory)
+```
+
+*Exercise 3.1* Read the files:
+
+```{r importData}
+rawCountTable <- read.table(paste0(directory,"count_table.tsv"), header=TRUE,
+                            row.names=1)
+sampleInfo <- read.table(paste0(directory,"pasilla_design.txt"), header=TRUE,
+                         row.names=1)
+```
+
+*Exercise 3.2* Have a look at the count data:
+```{r checkData}
+head(rawCountTable)
+nrow(rawCountTable)
+```
+`r nrow(rawCountTable)` genes are included in this file.
+
+*Exercise 3.3* Have a look at the sample information and order the count table
+in the same way that the sample information:
+```{r checkInfo}
+sampleInfo
+rawCountTable <- rawCountTable[,match(rownames(sampleInfo),
+                                      colnames(rawCountTable))]
+head(rawCountTable)
+```
+
+*Exercise 3.4* Create the 'condition' column
+```{r condition}
+sampleInfo$condition <- substr(rownames(sampleInfo), 1,
+                               nchar(rownames(sampleInfo))-1)
+sampleInfo$condition[sampleInfo$condition=="untreated"] <- "control"
+sampleInfo
+```
+
+# 4.1. Starting from count table
+
+*Exercise 4.1* Create a DGEList data object
+
+```{r DGEListCreation}
+dgeFull <- DGEList(rawCountTable, group=sampleInfo$condition)
+dgeFull
+```
+
+*Exercise 4.2* Add the sample information object in the DGEList data
+
+```{r DGEListInfo}
+dgeFull$sampleInfo <- sampleInfo
+dgeFull
+```
+
+# 4.2. Starting from separate files
+
+```{r directory2}
+directory <- "RNAseq_data/separate_files/"
+dir(directory)
+```
+
+*Exercise 4.3* Reading the passilla design
+```{r readPasillaDesign}
+fileInfo <- read.table(paste0(directory, "pasilla_design.txt"), header=TRUE)
+fileInfo
+```
+
+*Exercise 4.4* Create an additional column for the groups:
+```{r addGroup}
+fileInfo$group <- substr(rownames(fileInfo), 1, nchar(rownames(fileInfo))-7)
+fileInfo$group[fileInfo$group=="untreated"] <- "control"
+fileInfo
+```
+
+*Exercise 4.5* Import data from separate files with readDGE:
+```{r importReadDGE, cache=TRUE}
+dgeHTSeq <- readDGE(fileInfo, path=directory)
+dgeHTSeq
+```
+
+# 4.3 Preparing the data object for the analysis of interest
+
+*Exercise 4.6* Select the subset paired-end samples from degFull
+```{r pairedendSel}
+dge <- DGEList(dgeFull$counts[,dgeFull$sampleInfo$type=="paired-end"],
+               group=dgeFull$sampleInfo$condition[
+                 dgeFull$sampleInfo$type=="paired-end"])
+dge$sampleInfo <- dgeFull$sampleInfo[dgeFull$sampleInfo$type=="paired-end",]
+```
+
+# 4.4 Data exploration and quality assessment
+
+*Exercise 4.7* Extract pseudo-counts (*ie* $\log_2(K+1)$) 
+```{r pseudoCounts}
+pseudoCounts <- log2(dge$counts+1)
+head(pseudoCounts)
+```
+*Exercise 4.8* Histogram for pseudo-counts (sample ```treated2```)
+```{r histoPseudoCounts}
+hist(pseudoCounts[,"treated2"])
+```
+
+*Exercise 4.9* Boxplot for pseudo-counts
+```{r boxplotPseudoCounts}
+boxplot(pseudoCounts, col="gray")
+```
+
+*Exercise 4.10* MA-plots between control or treated samples
+```{r maPlotPseudoCounts, fig.width=10}
+par(mfrow=c(1,2))
+## treated2 vs treated3
+# A values
+avalues <- (pseudoCounts[,1] + pseudoCounts[,2])/2
+# M values
+mvalues <- (pseudoCounts[,1] - pseudoCounts[,2])
+plot(avalues, mvalues, xlab="A", ylab="M", pch=19, main="treated")
+abline(h=0, col="red")
+## untreated3 vs untreated4
+# A values
+avalues <- (pseudoCounts[,3] + pseudoCounts[,4])/2
+# M values
+mvalues <- (pseudoCounts[,3] - pseudoCounts[,4])
+plot(avalues, mvalues, xlab="A", ylab="M", pch=19, main="control")
+abline(h=0, col="red")
+```
+
+*Exercise 4.11* MDS for pseudo-counts (using ```limma``` package)
+```{r MDSPseudoCounts}
+plotMDS(pseudoCounts)
+```
+
+*Exercise 4.12* heatmap for pseudo-counts (using ```mixOmics``` package)
+```{r cimPseudoCounts, fig.width=10, fig.height=10}
+sampleDists <- as.matrix(dist(t(pseudoCounts)))
+sampleDists
+cimColor <- colorRampPalette(rev(brewer.pal(9, "Blues")))(16)
+cim(sampleDists, col=cimColor, symkey=FALSE)
+```
+
+# 4.5 Differential expression analysis
+
+*Exercise 4.13* remove genes with zero counts for all samples
+```{r removeZeroCounts}
+dge <- DGEList(dge$counts[apply(dge$counts, 1, sum) != 0, ],
+               group=dge$sampleInfo$condition)
+dge$sampleInfo <- dge$sampleInfo
+head(dge$counts)
+```
+
+*Exercise 4.14* estimate the normalization factors
+```{r estimateNormFactors}
+dge <- calcNormFactors(dge)
+dge$samples
+```
+
+*Exercise 4.15* estimate common and tagwise dispersion
+```{r estimateDispersion}
+dge <- estimateCommonDisp(dge)
+dge <- estimateTagwiseDisp(dge)
+dge
+```
+
+*Exercise 4.16* perform an exact test for the difference in expression between
+the two conditions "treated" and "control"
+```{r fisherExact}
+dgeTest <- exactTest(dge)
+dgeTest
+```
+
+# 4.6 Independant filtering
+
+*Exercise 4.17* remove low expressed genes
+```{r filter}
+filtData <- HTSFilter(dge)$filteredData
+dgeTestFilt <- exactTest(filtData)
+dgeTestFilt
+```
+
+# 4.7 Diagnostic plot for multiple testing
+
+*Exercise 4.18* plot a histogram of unadjusted p-values
+```{r histogramPVal}
+hist(dgeTest$table[,"PValue"], breaks=50)
+```
+
+*Exercise 4.19* plot a histogram of unadjusted p-values after filtering
+```{r histogramFDR}
+hist(dgeTestFilt$table[,"PValue"], breaks=50)
+```
+
+# 4.8 Inspecting the results
+
+*Exercise 4.20* extract a summary of the differential expression statistics
+```{r multipleTestCorrection}
+resNoFilt <- topTags(dgeTest, n=nrow(dgeTest$table))
+head(resNoFilt)
+resFilt <- topTags(dgeTestFilt, n=nrow(dgeTest$table))
+head(resFilt)
+```
+
+*Exercise 4.21* compare the number of differentially expressed genes with and
+without filtering
+```{r compareFilter}
+# before independent filtering
+sum(resNoFilt$table$FDR < 0.05)
+# after independent filtering
+sum(resFilt$table$FDR < 0.05)
+```
+
+*Exercise 4.22* extract and sort differentially expressed genes
+```{r extractDEG}
+sigDownReg <- resFilt$table[resFilt$table$FDR<0.05,]
+sigDownReg <- sigDownReg[order(sigDownReg$logFC),]
+head(sigDownReg)
+sigUpReg <- sigDownReg[order(sigDownReg$logFC, decreasing=TRUE),]
+head(sigUpReg)
+```
+
+*Exercise 4.24* write the results in csv files
+```{r csvExport}
+write.csv(sigDownReg, file="sigDownReg.csv")
+write.csv(sigUpReg, file="sigUpReg.csv")
+```
+
+# 4.9 Interpreting the DE analysis results
+
+*Exercise 4.25* create a MA plot with 1% differentially expressed genes
+```{r MADEG}
+plotSmear(dgeTestFilt,
+          de.tags = rownames(resFilt$table)[which(resFilt$table$FDR<0.01)])
+```
+
+*Exercise 4.26* create a Volcano plot
+```{r volcanoPlot}
+volcanoData <- cbind(resFilt$table$logFC, -log10(resFilt$table$FDR))
+colnames(volcanoData) <- c("logFC", "negLogPval")
+head(volcanoData)
+plot(volcanoData, pch=19)
+```
+
+*Exercise 4.27* transform the normalized counts in log-counts-per-million
+```{r logCPM}
+y <- cpm(dge, log=TRUE, prior.count = 1)
+head(y)
+```
+
+*Exercise 4.28* select 1% differentially expressed genes and produce a heatmap
+```{r selectDEHeatmap, fig.width=10, fig.height=10}
+selY <- y[rownames(resFilt$table)[resFilt$table$FDR<0.01 & 
+                                    abs(resFilt$table$logFC)>1.5],]
+head(selY)
+cimColor <- colorRampPalette(rev(brewer.pal(9, "Blues")))(255)[255:1]
+cim(t(selY), col=cimColor, symkey=FALSE)
+```
+

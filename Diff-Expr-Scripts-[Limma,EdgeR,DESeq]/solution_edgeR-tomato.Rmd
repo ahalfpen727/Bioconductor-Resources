@@ -1,0 +1,543 @@
+```{r globalOptions, include=FALSE}
+# comment / uncomment to show / hide R code
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This file analyses the data of the count table included in ```countData.txt```.
+These data are RNA sequencing of tomatoes, with two conditions (wild type and
+mutant) and 3 replicates by condition. One observation in a given condition has
+a clone in the second condition: this will be refered as the "genotype effect"
+in the rest of the document. The data were provided as a courtesy of Mohamed 
+Zouine (ENSAT, Toulouse).
+
+# Where to start? (installation and alike)
+
+Download the following files:
+* http://www.nathalievilla.org/doc/R/solution_edgeR-tomato.R (**R** script)
+* http://www.nathalievilla.org/doc/txt/countData.txt (dataset, text format)
+* ... (design, text format)
+and save them all in the same directory.
+
+Then start RStudio and using the menu "File/Open File...", open the file
+solution_edgeR-tomato.R (that contains the **R** script of this document). Also
+set your working directory to the directory where you have downloaded all files
+with the menu "Session / Set working directory / To source file location".
+
+The command lines in the **R** script can be executed using the button "Run" or
+the shortcut ```Ctrl+Enter```. The analysis has been performed using **R** and 
+the **R** packages edgeR, limma, RColorBrewer, mixOmics and HTSFilter. Precise 
+versions of the **R** software used in this document is given in the last 
+section of this document.
+
+The required packages must be loaded prior the analysis. If one of them is not 
+already installed, you can refer to the webpage
+http://www.nathalievilla.org/teaching/rnaseq.html to install it by yourself
+(```HTSFilter``` is probably not installed; you can not use the standard command
+```install.packages``` to install it because it is a Bioconductor package: check
+the webpage!).
+
+```{r loadLib, results='hide', message=FALSE}
+## Do Not Run
+# how to install required packages?
+# install.packages(c("RColorBrewer","mixOmics"))
+# source("http://bioconductor.org/biocLite.R")
+# biocLite("edgeR")
+## End DNR
+library(edgeR)
+library(limma)
+library(RColorBrewer)
+library(mixOmics)
+library(VennDiagram)
+library(HTSFilter)
+```
+
+# Preparing datasets
+
+## Description of the files (count table and design)
+
+If you open the file ```countData.txt``` with a simple text reader (wordpad for
+instance), you see that:
+
+- the first column contains the gene names;
+
+- the next three columns contain the WT samples;
+
+- the last three columns contain the Mutant samples;
+
+- columns are separated by tabs.
+
+If you open the file ```design.csv``` with a simple text reader (wordpad for
+instance), you see that:
+
+- the first column contains the sample names;
+
+- the second column contains the condition (M for Mutant or WT for Wild Type);
+
+- columns are separated by commas;
+
+- the first row contains column names.
+
+
+## Importing the files
+
+The two files are imported in, respectively, ```rawCountTable``` and 
+```sampleInfo``` with the function ```read.table```:
+```{r importData}
+rawCountTable <- read.table("countData.txt", header=TRUE, sep="\t", row.names=1)
+sampleInfo <- read.table("design.csv", header=TRUE, sep=",", row.names=1)
+```
+
+Their content can be checked with ```head``` that print the first 6 rows:
+```{r checkData}
+head(rawCountTable)
+nrow(rawCountTable)
+```
+`r nrow(rawCountTable)` genes are included in this file.
+
+Similarly, informations about samples are contained into ```sampleInfo```. The
+entry ```genotype```, that corresponds to the clone number, is converted into a
+factor for subsequent analyses.
+
+```{r checkDesign}
+head(sampleInfo)
+sampleInfo$genotype <- as.factor(sampleInfo$genotype)
+```
+
+
+## Creating a ```DGEList``` object
+
+A DGEList object is needed to process RNAseq datasets. This object is created
+using the count table and the design file:
+
+```{r DGEListCreation}
+dgeFull <- DGEList(rawCountTable, remove.zeros = TRUE)
+dgeFull
+```
+
+The information about sample genotypes and conditions can be added to the 
+```$samples``` entry with:
+```{r DGEListSamples}
+dgeFull$samples$condition <- relevel(sampleInfo$condition, ref = "WT")
+dgeFull$samples$genotype <- sampleInfo$genotype
+dgeFull
+```
+
+
+
+# Data exploration and quality assessment
+
+Exploratory analysis is generally perormed on $\log_2$-transformed counts to 
+avoid problems due to skewness of the count distribution:
+```{r pseudoCounts}
+pseudoCounts <- log2(dgeFull$counts + 1)
+head(pseudoCounts)
+```
+
+Standard exploratory analyses include:
+
+## Histogram for pseudo-counts (sample ```Cond.WT.Rep.1```)
+
+```{r histoPseudoCounts}
+hist(pseudoCounts[ ,"Cond.WT.Rep.1"], main = "", xlab = "counts")
+```
+
+
+## Boxplot for pseudo-counts
+
+```{r boxplotPseudoCounts}
+par(mar = c(8,4,1,2))
+boxplot(pseudoCounts, col = "gray", las = 3, cex.names = 1)
+```
+
+
+## MA-plots between first two WT samples (using ```limma``` package)
+
+```{r maPlotPseudoCounts, fig.width=10}
+limma::plotMA(pseudoCounts[ ,1:2], xlab = "M", ylab = "A", main = "")
+abline(h = 0, col = "red")
+```
+
+
+## MDS for pseudo-counts (using ```limma``` package)
+
+MDS is similar to PCA when Euclidean distances are used to assess the 
+distances between samples. In ```limma```, only the 500 top genes (the most
+variable genes accross samples).
+
+```{r MDSPseudoCounts}
+colConditions <- brewer.pal(3, "Set2")
+colConditions <- colConditions[match(sampleInfo$condition,
+                                     levels(sampleInfo$condition))]
+pchGenotypes <- c(8, 15, 16)[match(sampleInfo$genotype,
+                                   levels(sampleInfo$genotype))]
+plotMDS(pseudoCounts, pch = pchGenotypes, col = colConditions)
+legend("topright", lwd = 2, col = brewer.pal(3, "Set2")[1:2], 
+       legend = levels(sampleInfo$condition))
+legend("bottomright", pch = c(8, 15, 16), 
+       legend = levels(sampleInfo$genotype))
+```
+
+
+## Heatmap for pseudo-counts (using ```mixOmics``` package)
+
+```{r cimPseudoCounts, fig.width=10, fig.height=10}
+sampleDists <- as.matrix(dist(t(pseudoCounts)))
+sampleDists
+cimColor <- colorRampPalette(rev(brewer.pal(9, "Reds")))(16)
+cim(sampleDists, color = cimColor, symkey = FALSE, row.cex = 0.7, col.cex = 0.7)
+```
+
+
+# Normalization
+
+## Compute normalization factors
+
+```{r estimateNormFactors}
+dgeFull <- calcNormFactors(dgeFull, method="TMM")
+dgeFull
+```
+
+**Important**: using ```calcNormFactors``` does not change the counts: it just
+updates the column ```norm.factors``` in ```$samples```. It is therefore
+recommanded that you use the same name (```dgeFull```) to save the result of 
+this function:
+
+```{r countsAfterNorm}
+head(dgeFull$counts)
+```
+
+```{r sampleInfoAfterNorm}
+dgeFull$samples
+```
+
+
+## Normalized counts exploratory analysis
+
+Normalized counts and pseudo-counts can be extracted from ```dgeFull``` using 
+the function ```cpm```:
+```{r estimateNormCounts, fig.width=10, fig.height=10}
+normCounts <- cpm(dgeFull)
+pseudoNormCounts <- cpm(dgeFull, log = TRUE, prior.count = 1)
+par(mar = c(8,4,1,2))
+boxplot(pseudoNormCounts, col = "gray", las = 3, cex.names = 1)
+```
+
+```{r normMDS}
+plotMDS(pseudoNormCounts, pch = pchGenotypes, col = colConditions)
+legend("topright", lwd = 2, col = brewer.pal(3, "Set2")[1:2], 
+       legend = levels(sampleInfo$condition))
+legend("bottomright", pch = c(8, 15, 16), 
+       legend = levels(sampleInfo$genotype))
+```
+
+A further analysis and comparison of the different normalizations provided in
+the **R** packages ```edgeR``` and ```DESeq2``` is provided in 
+[this document](http://www.nathalievilla.org/doc/html/TP1_normalization.html) 
+(the design of the dataset used in this practical application is similar to the
+design of the tomato dataset).
+
+
+# Differential analysis
+
+This section will compare the results of different types of approach to obtain 
+genes which are differentially expressed between the wild type tomatoes and the
+mutants:
+
+* a standard NB exact test between two conditions;
+
+* a GLM with the plant and genotype effects.
+
+
+## First approach: exact test between the two groups
+
+In this first approach, the differences between the two groups (WT and M) is
+tested using an exact NB test between the two groups. This method is performed
+by:
+
+* creating a ```DGEList``` object using the argument ```group``` and using the
+same normalization factors than in ```dgeFull``` ;
+
+* estimating the dispersion for this object with the functions 
+```estimateCommonDisp``` and ```estimateTagwiseDisp``` ;
+
+* performing the test with the function ```exactTest```.
+
+
+### Using the argument ```group``` in ```DGEList```
+
+A new ```DGEList``` object is created with the argument ```group```. 
+Normalization factors are updated from that in ```dgeFull```.
+
+```{r DGEListCreationG}
+dgeFull.group <- DGEList(rawCountTable, remove.zeros = TRUE, 
+                         group = dgeFull$samples$condition)
+dgeFull.group$samples$norm.factors <- dgeFull$samples$norm.factors
+dgeFull.group
+```
+
+
+### Estimate dispersion
+
+Common and then tagwise dispersions can be estimated with:
+
+```{r estimateDispersion, cache=TRUE}
+dgeFull.group <- estimateCommonDisp(dgeFull.group)
+dgeFull.group <- estimateTagwiseDisp(dgeFull.group)
+dgeFull.group
+```
+
+```edgeR``` also contains a function to estimate dispersions in a more robust
+way, that can be used if the previous approach seems to fail. This function
+is ```estimateGLMRobustDisp```. The quality of the variability estimatino can be 
+assessed with the BCV versus average log CPM plot (that plots $\phi_g$ versus
+the average normalized count for all genes):
+
+```{r plotBCV}
+plotBCV(dgeFull.group)
+```
+
+
+
+### Perform the test
+
+An exact perform an exact test for the difference in expression between
+the two conditions "WT" and "M":
+
+```{r fisherExact}
+dgeExactTest <- exactTest(dgeFull.group)
+dgeExactTest
+```
+
+$p$-values are corrected with the function ```topTags``` :
+
+```{r topTag}
+resExactTest <- topTags(dgeExactTest, n = nrow(dgeExactTest$table))
+head(resExactTest$table)
+```
+
+$p$-value and (BH) adjusted $p$-value distribution can be assessed with:
+```{r histPValExact, fig.width=10, fig.height=6}
+par(mfrow = c(1,2))
+hist(resExactTest$table$PValue, xlab = "p-value", main = "raw p-values")
+hist(resExactTest$table$FDR, xlab = "p-value", main = "adjusted p-values")
+```
+
+
+And finally, genes with a FDR smaller than 5% and a log Fold Change larger
+than 1 or smaller than -1 are extracted:
+```{r DEGExact}
+selectedET <- resExactTest$table$FDR < 0.05 & abs(resExactTest$table$logFC) > 1
+selectedET <- resExactTest$table[selectedET, ]
+nrow(selectedET)
+head(selectedET)
+```
+which shows that `r nrow(selectedET)` genes are found differential with this 
+method. The column ```logFC``` can be used to found up/down regulated genes
+in the M:
+```{r UDregExact}
+selectedET$updown <- factor(ifelse(selectedET$logFC > 0, "up", "down"))
+head(selectedET)
+```
+
+This list can be exported with:
+```{r exportExact}
+write.table(selectedET, file = "tomatoDEG.csv", sep = ",")
+```
+
+
+## Second approach: GLM with condition and genotype effects
+
+Here, we fit a GLM to account for the genotype effect. The model writes
+$K_{gj} \sim \mbox{NB}(\mu_{gj}, \phi_g)$ with $\mathbb{E}(\log K_{gj}) = 
+\log(s_j) + \log(\lambda_{gj})$ in which $j$ is the sample number, $s_j$ is the 
+normalization factor and $\log(\lambda_{gj})$ is explained by
+$\log(\lambda_{gj}) = \lambda_{g0} + \beta_{g,j \textrm{ is M}} + 
+\gamma_{g,j\textrm{ is clone 2}} + \gamma_{g,j\textrm{ is clone +}}$ (WT 
+condition and clone number 1 are reference levels).
+
+
+### Estimate dispersion
+
+The model is first encoded in a design matrix:
+```{r designMatrix}
+design.matrix <- model.matrix(~ dgeFull$samples$condition + 
+                                dgeFull$samples$genotype)
+design.matrix
+```
+
+Common, trended and then tagwise dispersions can be estimated with:
+
+```{r estimateDispersionGLM, cache=TRUE}
+dgeFull <- estimateDisp(dgeFull, design.matrix)
+dgeFull
+```
+
+The quality of the variability estimation can be assessed with the BCV versus 
+average log CPM plot (that plots $\phi_g$ versus the average normalized count 
+for all genes):
+
+```{r plotBCVGLM}
+plotBCV(dgeFull)
+```
+
+
+### Fit GLM and perform the test
+
+The GLM is fitted with the function ```glmFit```:
+
+```{r GLMfit}
+fit <- glmFit(dgeFull, design.matrix)
+fit
+```
+
+Then tests can be performed with a log-ratio test (function ```glmRT```). For 
+instance, to testing differential genes between WT and M, is equivalent to 
+testing the nullity of the second coefficient (see the design matrix) :
+```{r LRTtest}
+dgeLRTtest <- glmLRT(fit, coef = 2)
+dgeLRTtest
+```
+
+
+Testing differential genes between clone number 2 and 3 is equivalent to testing
+the equality of coefficients 3 and 4:
+```{r LRTtest2}
+contrasts <- rep(0, ncol(design.matrix))
+contrasts[3] <- 1
+contrasts[4] <- -1
+dgeLRTtest2 <- glmLRT(fit, contrast = contrasts)
+dgeLRTtest2
+```
+
+Finally, DEGs can be extracted as previously, using the function ```topTags```:
+```{r topTagsGLM}
+resLRT <- topTags(dgeLRTtest, n = nrow(dgeFull$counts))
+head(resLRT$table)
+```
+
+```{r extractDEGGLM}
+selectedLRT <- resLRT$table$FDR < 0.05 & abs(resLRT$table$logFC) > 1
+selectedLRT <- resLRT$table[selectedLRT, ]
+nrow(selectedLRT)
+head(selectedLRT)
+```
+
+
+## Comparison
+
+A Venn diagram comparing the two approaches is provided below:
+```{r VennDiagram}
+vd <- venn.diagram(x = list("Exact test" = rownames(selectedET),
+                            "GLM" = rownames(selectedLRT)),
+                   fill = brewer.pal(3, "Set2")[1:2], filename = NULL)
+grid.draw(vd)
+```
+
+More complex models and a more detailed comparison between the different 
+approches for differential analysis is provided in 
+[this document](http://www.nathalievilla.org/doc/html/TP1_normalization.html) 
+(the same that was previously pointed for normalization comparison) and 
+[this document](http://www.nathalievilla.org/doc/html/TP2_interaction.html)
+(with the analysis of an interaction effect).
+
+
+# Filtering
+
+
+## Differential analysis after independent filtering
+
+Independant filtering can be performed with the package ```HTSFilter``` after
+the dispersion has been estimated:
+```{r filter, cache=TRUE}
+dgeFilt <- HTSFilter(dgeFull)$filteredData
+dgeFilt
+```
+
+Then, the differential analysis (GLM approach) is performed:
+
+```{r GLMfilt}
+fit <- glmFit(dgeFilt, design.matrix)
+dgeLRTfilt <- glmLRT(fit, coef = 2)
+resLRTfilt <- topTags(dgeLRTfilt, n = nrow(dgeFilt$counts))
+selectedFilt <- resLRTfilt$table$FDR < 0.05 & abs(resLRTfilt$table$logFC) > 1
+selectedFilt <- resLRTfilt$table[selectedFilt, ]
+nrow(selectedFilt)
+head(selectedFilt)
+```
+
+## Comparison
+
+A Venn diagram comparing the two approaches is provided below:
+```{r VennDiagramFilt}
+vd <- venn.diagram(x = list("No filtering" = rownames(selectedLRT),
+                            "Filtering" = rownames(selectedFilt)),
+                   fill = brewer.pal(3, "Set2")[1:2], filename = NULL)
+grid.draw(vd)
+```
+
+
+# Exploratory analysis of DEGs
+
+## Create a MA plot with differentially expressed genes
+
+To create a MA plot between M and WT, the entry ```$samples$group``` of the 
+```DGEList``` object must be filled with the indication of what the two groups
+are.
+
+```{r MADEG}
+dgeFilt$samples$group <- dgeFilt$samples$condition
+plotSmear(dgeFilt, de.tags = rownames(selectedFilt))
+```
+
+
+## Volcano plot
+```{r volcanoPlot}
+volcanoData <- cbind(resLRTfilt$table$logFC, -log10(resLRTfilt$table$FDR))
+colnames(volcanoData) <- c("logFC", "negLogPval")
+DEGs <- resLRTfilt$table$FDR < 0.05 & abs(resLRTfilt$table$logFC) > 1
+point.col <- ifelse(DEGs, "red", "black")
+plot(volcanoData, pch = 16, col = point.col, cex = 0.5)
+```
+
+## Heatmap
+
+```{r selectDEHeatmap, fig.width=10, fig.height=10}
+selY <- cpm(dgeFilt, log = TRUE, prior.count = 1)
+selY <- selY[match(rownames(selectedFilt), rownames(dgeFilt$counts)), ]
+finalHM <- cim(t(selY), color = cimColor, symkey = FALSE, row.cex = 0.7,
+               col.cex = 0.7)
+```
+
+If you are interested in the result of the gene clustering, the result of HAC is
+saved into ```$ddc```:
+```{r plotDendoGenes, fig.width=10, fig.height=10}
+plot(finalHM$ddc, leaflab="none")
+abline(h=10, lwd=2, col="pink")
+```
+
+Using this dendrogram, we might want to cut the tree at level $h=10$ (for 
+instance). This can be performed using the function ```cutree```, which will
+provide a cluster membership for each gene.
+```{r cutDendoGenes}
+geneClust <- cutree(as.hclust(finalHM$ddc), h=10)
+head(geneClust)
+```
+For instance, the number of clusters is equal to
+```{r nbClustGene}
+length(unique(geneClust))
+```
+and the genes in cluster 1 are:
+```{r geneClust1}
+names(which(geneClust == 1))
+```
+
+
+# Session information
+
+```{r sessionInformation, echo=TRUE}
+sessionInfo()
+```
+
+```{r deleteVD, echo=FALSE}
+system("rm VennDiagram*.log")
+```

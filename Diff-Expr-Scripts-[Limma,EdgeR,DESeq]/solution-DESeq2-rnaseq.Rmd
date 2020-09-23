@@ -1,0 +1,240 @@
+This file gives the answer to the document "Practical statistical analysis of
+RNA-Seq data" using the **R** packages DESeq2 (version 1.4.5), mixOmics 
+(version 5.0-1), RColorBrewer(version 1.0-5) and HTSFilter (version 1.6.0).
+
+```{r loadLib}
+library(DESeq2)
+library(RColorBrewer)
+library(mixOmics)
+library(HTSFilter)
+```
+
+# 3.1. Starting from count table
+
+Properly set the directory from which files are imported:
+
+```{r directory}
+directory <- "RNAseq_data/count_table_files/"
+dir(directory)
+```
+
+*Exercise 3.1* Read the files:
+
+```{r importData}
+rawCountTable <- read.table(paste0(directory,"count_table.tsv"), header=TRUE,
+                            row.names=1)
+sampleInfo <- read.table(paste0(directory,"pasilla_design.txt"), header=TRUE,
+                         row.names=1)
+```
+
+*Exercise 3.2* Have a look at the count data:
+```{r checkData}
+head(rawCountTable)
+nrow(rawCountTable)
+```
+`r nrow(rawCountTable)` genes are included in this file.
+
+*Exercise 3.3* Have a look at the sample information and order the count table
+in the same way that the sample information:
+```{r checkInfo}
+sampleInfo
+rawCountTable <- rawCountTable[,match(rownames(sampleInfo),
+                                      colnames(rawCountTable))]
+head(rawCountTable)
+```
+
+*Exercise 3.4* Create the 'condition' column
+```{r condition}
+sampleInfo$condition <- substr(rownames(sampleInfo), 1,
+                               nchar(rownames(sampleInfo))-1)
+sampleInfo$condition[sampleInfo$condition=="untreated"] <- "control"
+sampleInfo$condition <- factor(sampleInfo$condition)
+sampleInfo
+```
+
+*Exercise 3.5* Create a 'DESeqDataSet' object
+```{r DESeqData}
+ddsFull <- DESeqDataSetFromMatrix(as.matrix(rawCountTable), sampleInfo,
+                                  formula(~condition))
+ddsFull
+```
+
+# 3.2. Starting from separate files
+
+*Exercise 3.6* List all files in directory
+
+```{r directory2}
+directory <- "RNAseq_data/separate_files/"
+sampleFiles <- list.files(directory)
+sampleFiles
+```
+
+*Exercise 3.7* Create an object with file informations
+
+```{r fileInfo}
+keptFiles <- sampleFiles[-1]
+sampleName <- sapply(keptFiles, function(afile)
+  substr(afile, 1, nchar(afile)-6))
+condition<- sapply(keptFiles, function(afile) 
+  substr(afile, 1, nchar(afile)-7))
+fileInfo <- data.frame(sampleName = sampleName, sampleFiles = keptFiles,
+                       condition = condition)
+rownames(fileInfo) <- NULL
+fileInfo
+```
+
+*Exercise 3.8* Construct a 'DESeqDataSet' object
+
+```{r DESeqData2}
+ddsHTSeq <- DESeqDataSetFromHTSeqCount(fileInfo, directory, formula(~condition))
+ddsHTSeq
+```
+
+# 3.3. Preparing the data object for the analysis of interest
+
+*Exercise 3.9* Select the subset of paire-end samples
+```{r subsetPairedEnd}
+dds <- subset(ddsFull, select=colData(ddsFull)$type=="paired-end")
+dds
+colData(dds)
+```
+
+# 3.4 Data exploration and quality assessment
+
+*Exercise 3.10* Extract pseudo-counts (*ie* $\log_2(K+1)$) 
+```{r pseudoCounts}
+pseudoCounts <- log2(counts(dds)+1)
+head(pseudoCounts)
+```
+*Exercise 3.11* Histogram for pseudo-counts (sample ```treated2```)
+```{r histoPseudoCounts}
+hist(pseudoCounts[,"treated2"])
+```
+
+*Exercise 3.12* Boxplot for pseudo-counts
+```{r boxplotPseudoCounts}
+boxplot(pseudoCounts, col="gray")
+```
+
+*Exercise 3.13* MA-plots between control or treated samples
+```{r maPlotPseudoCounts, fig.width=10}
+par(mfrow=c(1,2))
+## treated2 vs treated3
+# A values
+avalues <- (pseudoCounts[,1] + pseudoCounts[,2])/2
+# M values
+mvalues <- (pseudoCounts[,1] - pseudoCounts[,2])
+plot(avalues, mvalues, xlab="A", ylab="M", pch=19, main="treated")
+abline(h=0, col="red")
+## untreated3 vs untreated4
+# A values
+avalues <- (pseudoCounts[,3] + pseudoCounts[,4])/2
+# M values
+mvalues <- (pseudoCounts[,3] - pseudoCounts[,4])
+plot(avalues, mvalues, xlab="A", ylab="M", pch=19, main="control")
+abline(h=0, col="red")
+```
+
+*Exercise 3.14* PCA for pseudo-counts
+```{r PCAPseudoCounts}
+vsd <- varianceStabilizingTransformation(dds)
+vsd
+plotPCA(vsd)
+```
+
+*Exercise 3.15* heatmap for pseudo-counts (using ```mixOmics``` package)
+```{r cimPseudoCounts, fig.width=10, fig.height=10}
+sampleDists <- as.matrix(dist(t(pseudoCounts)))
+sampleDists
+cimColor <- colorRampPalette(rev(brewer.pal(9, "Blues")))(16)
+cim(sampleDists, col=cimColor, symkey=FALSE)
+```
+
+# 3.5. Differential expression analysis
+
+*Exercise 3.16* Run the DESeq2 analysis
+```{r performAnalysis}
+dds <- DESeq(dds)
+dds
+```
+
+# 3.6. Inspecting the results
+
+*Exercise 3.17* Extract the results
+```{r extractRes}
+res <- results(dds)
+res
+```
+
+*Exercise 3.18* Obtain information on the meaning of the columns
+```{r resColumns}
+mcols(res)
+```
+
+*Exercise 3.19* Count the number of significant genes at level 1%
+```{r nbDEG}
+sum(res$padj < 0.01, na.rm=TRUE)
+```
+
+*Exercise 3.20* Extract significant genes and sort them by the strongest down
+regulation
+```{r downDEG}
+sigDownReg <- res[!is.na(res$padj), ]
+sigDownReg <- sigDownReg[sigDownReg$padj < 0.01, ]
+sigDownReg <- sigDownReg[order(sigDownReg$log2FoldChange),]
+sigDownReg
+```
+
+*Exercise 3.21* Extract significant genes and sort them by the strongest up
+regulation
+```{r upDEG}
+sigUpReg <- res[!is.na(res$padj), ]
+sigUpReg <- sigUpReg[sigUpReg$padj < 0.01, ]
+sigUpReg <- sigUpReg[order(sigUpReg$log2FoldChange, decreasing=TRUE),]
+sigUpReg
+```
+
+*Exercise 3.22* Create permanent storage of results
+```{r saveRes}
+write.csv(sigDownReg, file="sigDownReg-deseq.csv")
+write.csv(sigUpReg, file="sigUpReg-deseq.csv")
+```
+
+# 3.7 Diagnostic plot for multiple testing
+
+*Exercise 3.23* Plot a histogram of unadjusted p-values after filtering
+```{r histogramPVal}
+hist(res$pvalue, breaks=50)
+```
+
+# 3.8 Interpreting the DE analysis results
+
+*Exercise 3.24* Create a MA plot showing differentially expressed genes
+```{r resMAplot}
+plotMA(res, alpha=0.01)
+```
+
+*Exercise 3.25* Create a Volcano plot
+```{r volcanoPlot}
+volcanoData <- cbind(res$log2FoldChange, -log10(res$padj))
+volcanoData <- na.omit(volcanoData)
+colnames(volcanoData) <- c("logFC", "negLogPval")
+head(volcanoData)
+plot(volcanoData, pch=19, cex=0.5)
+```
+
+*Exercise 3.26* Transform the normalized counts for variance stabilization
+```{r geneClustering}
+vsnd <- varianceStabilizingTransformation(dds, blind=FALSE)
+vsnd
+```
+
+*Exercise 3.27* Extract the transformed data
+```{r selectDEHeatmap, fig.width=10, fig.height=10}
+head(assay(vsnd), 10)
+selY <- assay(vsnd)[!is.na(res$pval), ]
+selY <- selY[res$pval[!is.na(res$pval)] < 0.01,]
+cimColor <- colorRampPalette(rev(brewer.pal(9, "Blues")))(255)[255:1]
+cim(t(selY), col=cimColor, symkey=FALSE)
+```
+
